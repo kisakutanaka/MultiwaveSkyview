@@ -42,7 +42,11 @@ interface CompassCapableEvent extends DeviceOrientationEvent {
  */
 function resolveAlphaDeg(event: DeviceOrientationEvent): number | null {
   const iosHeading = (event as CompassCapableEvent).webkitCompassHeading;
-  if (typeof iosHeading === "number" && !Number.isNaN(iosHeading)) {
+  // iOS reports webkitCompassHeading === -1 when the compass is
+  // uncalibrated/invalid (not a real 0-360 heading). Treating it as valid
+  // caused alpha to snap to ~361deg (=~1deg, i.e. ~north) every time the
+  // compass briefly glitched, producing large sudden jumps.
+  if (typeof iosHeading === "number" && !Number.isNaN(iosHeading) && iosHeading >= 0) {
     return 360 - iosHeading;
   }
   if (event.absolute && typeof event.alpha === "number") {

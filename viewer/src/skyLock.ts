@@ -12,6 +12,12 @@ import {
 import { isGeolocationSupported, requestGeoPosition, type GeoPosition } from "./sensors/geolocation";
 
 const NO_SAMPLE_TIMEOUT_MS = 5000;
+// Fraction of the remaining angular gap closed per frame: smooths out raw
+// sensor jitter (most visible when the phone is held near-vertical, i.e.
+// beta ~ 90deg, which is the natural "hold it up like a window" pose for
+// this app - exactly where this style of Euler-angle orientation math is
+// most prone to noisy readings) instead of snapping the camera every frame.
+const SMOOTHING_FACTOR = 0.2;
 
 export function isSkyLockSupported(): boolean {
   return isDeviceOrientationSupported() && isGeolocationSupported();
@@ -25,6 +31,7 @@ export class SkyLockController {
   private latestSample: DeviceOrientationSample | null = null;
   private noSampleTimer: number | null = null;
   private enabled = false;
+  private readonly targetObject = new THREE.Object3D();
   /** Fired whenever `enabled` actually changes, including the internal no-sample auto-revert - lets UI stay in sync without polling. */
   onStateChange: ((enabled: boolean) => void) | null = null;
 
@@ -100,6 +107,10 @@ export class SkyLockController {
     const equatorial = altAzToEquatorial(this.latestSample, this.position.latitudeDeg, lstDeg);
     const galactic = equatorialToGalactic(equatorial);
     const direction = galacticToWorldDirection(galactic.lDeg, galactic.bDeg);
-    this.camera.lookAt(direction);
+
+    this.targetObject.position.copy(this.camera.position);
+    this.targetObject.up.copy(this.camera.up);
+    this.targetObject.lookAt(direction);
+    this.camera.quaternion.slerp(this.targetObject.quaternion, SMOOTHING_FACTOR);
   }
 }
