@@ -1,0 +1,98 @@
+import * as THREE from "three";
+import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { equatorialToGalactic, altAzToEquatorial } from "./astro/coords";
+import { galacticToWorldDirection } from "./astro/galacticToDirection";
+import { localSiderealTimeDeg } from "./astro/time";
+import {
+  DeviceOrientationTracker,
+  isDeviceOrientationSupported,
+  requestDeviceOrientationPermission,
+  type DeviceOrientationSample,
+} from "./sensors/deviceOrientation";
+import { isGeolocationSupported, requestGeoPosition, type GeoPosition } from "./sensors/geolocation";
+
+const NO_SAMPLE_TIMEOUT_MS = 5000;
+
+export function isSkyLockSupported(): boolean {
+  return isDeviceOrientationSupported() && isGeolocationSupported();
+}
+
+export class SkyLockController {
+  private readonly camera: THREE.Camera;
+  private readonly controls: OrbitControls;
+  private readonly tracker = new DeviceOrientationTracker();
+  private position: GeoPosition | null = null;
+  private latestSample: DeviceOrientationSample | null = null;
+  private noSampleTimer: number | null = null;
+  private enabled = false;
+
+  constructor(camera: THREE.Camera, controls: OrbitControls) {
+    this.camera = camera;
+    this.controls = controls;
+  }
+
+  get isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  /** Requests geolocation + device-orientation permission; returns false if either is denied/unavailable. */
+  async enable(): Promise<boolean> {
+    const [orientationGranted, position] = await Promise.all([
+      requestDeviceOrientationPermission(),
+      requestGeoPosition().catch(() => null),
+    ]);
+
+    if (!orientationGranted || !position) {
+      return false;
+    }
+
+    this.position = position;
+    this.latestSample = null;
+    this.controls.enabled = false;
+    this.enabled = true;
+
+    this.tracker.start((sample) => {
+      this.latestSample = sample;
+      if (this.noSampleTimer !== null) {
+        window.clearTimeout(this.noSampleTimer);
+        this.noSampleTimer = null;
+      }
+    });
+
+    // Some desktop browsers expose the DeviceOrientationEvent API but never
+    // fire it (no real sensor) - bail back to free-look if nothing arrives.
+    this.noSampleTimer = window.setTimeout(() => {
+      if (!this.latestSample) {
+        console.warn("[sky-lock] no orientation data received; reverting to free look");
+        this.disable();
+      }
+    }, NO_SAMPLE_TIMEOUT_MS);
+
+    return true;
+  }
+
+  disable(): void {
+    this.tracker.stop();
+    if (this.noSampleTimer !== null) {
+      window.clearTimeout(this.noSampleTimer);
+      this.noSampleTimer = null;
+    }
+    this.latestSample = null;
+    this.position = null;
+    this.controls.enabled = true;
+    this.enabled = false;
+  }
+
+  /** Call once per animation frame; no-op until enabled and the first sensor sample arrives. */
+  update(): void {
+    if (!this.enabled || !this.latestSample || !this.position) {
+      return;
+    }
+
+    const lstDeg = localSiderealTimeDeg(new Date(), this.position.longitudeDeg);
+    const equatorial = altAzToEquatorial(this.latestSample, this.position.latitudeDeg, lstDeg);
+    const galactic = equatorialToGalactic(equatorial);
+    const direction = galacticToWorldDirection(galactic.lDeg, galactic.bDeg);
+    this.camera.lookAt(direction);
+  }
+}

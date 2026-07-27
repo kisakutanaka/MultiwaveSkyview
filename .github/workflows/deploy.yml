@@ -1,0 +1,62 @@
+name: Deploy viewer to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: viewer/package-lock.json
+
+      # public/data is a symlink to ../allsky_textures for local dev
+      # convenience. Replace it here with a real copy of just png/ (not
+      # fits/, which isn't even in the repo) so the build is self-contained
+      # and doesn't depend on how the build tool handles symlinked publicDir
+      # entries.
+      - name: Stage survey PNGs into public/data
+        run: |
+          rm -f viewer/public/data
+          mkdir -p viewer/public/data
+          cp -r allsky_textures/png viewer/public/data/png
+
+      - name: Install dependencies
+        working-directory: viewer
+        run: npm ci
+
+      - name: Build
+        working-directory: viewer
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: viewer/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

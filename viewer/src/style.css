@@ -1,0 +1,80 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  color: #eee;
+  font-family: system-ui, sans-serif;
+  overflow: hidden;
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+#app canvas {
+  display: block;
+}
+
+#debug-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  max-width: 320px;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  font-size: 12px;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+#debug-panel fieldset {
+  margin: 0 0 10px;
+  padding: 6px 8px;
+  border: 1px solid #555;
+}
+
+#debug-panel legend {
+  padding: 0 4px;
+  color: #9cf;
+}
+
+#debug-panel label {
+  display: block;
+  margin: 4px 0;
+}
+
+#debug-panel select,
+#debug-panel input[type="range"] {
+  width: 100%;
+}
+
+#debug-panel .row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+#loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #000;
+  font-size: 14px;
+}
+
+#loading-overlay.hidden {
+  display: none;
+}

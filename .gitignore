@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+
+# Raw FITS downloads: large (up to ~268MB/file), not needed for deployment,
+# and would blow past GitHub's 100MB per-file push limit anyway.
+allsky_textures/fits/
+
+# allsky_textures/png/ IS tracked - it's the data the deployed site serves,
+# and each file is well under 100MB.
+
+# Misc
+.DS_Store
+**/選択項目から作成したフォルダ
+
+# Node (viewer/ also has its own .gitignore for node_modules/dist etc.)
+node_modules/
+dist/
