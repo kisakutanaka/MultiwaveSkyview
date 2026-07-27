@@ -13,6 +13,7 @@ import { isSkyLockSupported, SkyLockController } from "./skyLock";
 import type { LayerState } from "./types";
 import { createDebugPanel } from "./ui/debugPanel";
 import { createSkyLockButton } from "./ui/skyLockButton";
+import { createUiVisibilityToggle } from "./ui/uiVisibilityToggle";
 
 const appQuery = document.querySelector<HTMLDivElement>("#app");
 if (!appQuery) {
@@ -75,23 +76,28 @@ const skyLock = new SkyLockController(camera, controls);
 if (isSkyLockSupported()) {
   const skyLockButton = createSkyLockButton(() => {
     void (async () => {
+      if (skyLock.isEnabled) {
+        skyLock.disable();
+        return;
+      }
       skyLockButton.disabled = true;
       const granted = await skyLock.enable();
+      skyLockButton.disabled = false;
       if (!granted) {
         console.warn("[sky-lock] permission denied or unavailable");
         skyLockButton.remove();
-        return;
       }
-      skyLockButton.disabled = false;
-      skyLockButton.textContent = "自由視点に戻る";
-      skyLockButton.onclick = () => {
-        skyLock.disable();
-        skyLockButton.remove();
-      };
     })();
   });
+  // Keeps the button label in sync even when skyLock disables itself
+  // internally (e.g. the no-sample timeout), not just on explicit clicks.
+  skyLock.onStateChange = (enabled) => {
+    skyLockButton.textContent = enabled ? "自由視点に戻る" : "実際の空と同期";
+  };
   app.appendChild(skyLockButton);
 }
+
+app.appendChild(createUiVisibilityToggle(app));
 
 function animate(): void {
   requestAnimationFrame(animate);

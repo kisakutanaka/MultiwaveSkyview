@@ -78,3 +78,39 @@ body {
 #loading-overlay.hidden {
   display: none;
 }
+
+#sky-lock-button {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 15;
+  padding: 10px 20px;
+  border: 1px solid #777;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #eee;
+  font-size: 14px;
+}
+
+#sky-lock-button:disabled {
+  opacity: 0.5;
+}
+
+#ui-toggle-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 20;
+  padding: 6px 10px;
+  border: 1px solid #777;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #eee;
+  font-size: 12px;
+}
+
+.ui-hidden #debug-panel,
+.ui-hidden #sky-lock-button {
+  display: none;
+}

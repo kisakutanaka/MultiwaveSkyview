@@ -25,6 +25,8 @@ export class SkyLockController {
   private latestSample: DeviceOrientationSample | null = null;
   private noSampleTimer: number | null = null;
   private enabled = false;
+  /** Fired whenever `enabled` actually changes, including the internal no-sample auto-revert - lets UI stay in sync without polling. */
+  onStateChange: ((enabled: boolean) => void) | null = null;
 
   constructor(camera: THREE.Camera, controls: OrbitControls) {
     this.camera = camera;
@@ -50,6 +52,7 @@ export class SkyLockController {
     this.latestSample = null;
     this.controls.enabled = false;
     this.enabled = true;
+    this.onStateChange?.(true);
 
     this.tracker.start((sample) => {
       this.latestSample = sample;
@@ -72,6 +75,7 @@ export class SkyLockController {
   }
 
   disable(): void {
+    const wasEnabled = this.enabled;
     this.tracker.stop();
     if (this.noSampleTimer !== null) {
       window.clearTimeout(this.noSampleTimer);
@@ -81,6 +85,9 @@ export class SkyLockController {
     this.position = null;
     this.controls.enabled = true;
     this.enabled = false;
+    if (wasEnabled) {
+      this.onStateChange?.(false);
+    }
   }
 
   /** Call once per animation frame; no-op until enabled and the first sensor sample arrives. */
