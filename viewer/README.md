@@ -54,14 +54,33 @@ DeviceOrientation(コンパス方位・傾き)から現在向いている方角�
 
 このアプリは完全な静的サイトとして動作するが、`public/data`は開発用の
 シンボリックリンクなので、本番ホスティング先には実データ(PNGファイル、
-合計約130MB)をそのまま配置する必要がある。デプロイ先は未定
-(`docs/web-viewer-spec.md`の「未確定・次の検討事項」を参照)。
+合計約130MB)をそのまま配置する必要がある。
 
-GitHub Pagesでホストする場合の注意: 個別ファイルは100MB未満なので
-push自体は可能だが、Gitリポジトリに130MBのバイナリを直接コミットするのは
-避け、Git LFS(ただしGitHub PagesはLFS実体を配信しない)以外の方法を
-検討すること。
+GitHub Pagesへのデプロイは`.github/workflows/deploy.yml`が自動で行う
+(pushをトリガーに、`allsky_textures/png/`を`public/data/png/`へ実体コピーして
+ビルド)。個別ファイルは全て100MB未満なのでGit LFSは不要で、リポジトリに
+直接コミットしている(`allsky_textures/fits/`は大きすぎるため`.gitignore`で除外)。
 
 ## 対応環境
 
 WebGL2が使えるモダンブラウザのみを想定。WebGL1へのフォールバックは実装していない。
+
+## ライセンス・データ出典
+
+このリポジトリのコードにライセンスファイルは付与していない(無断での
+複製・再配布は不可)。
+
+表示している各サーベイのデータは、それぞれの提供元の権利・利用規約に従う
+(このプロジェクトが独自にライセンスを与えるものではない):
+
+- **電波 (Haslam 408MHz)**: Haslam et al. 全天408MHzサーベイ。CDS HiPS `CDS/P/Haslam408/v2` 経由
+- **赤外線 (AKARI 90um)**: JAXA/ISAS AKARI(あかり)衛星, FIS。CDS HiPS `CDS/P/AKARI/FIS/WideS` 経由
+- **可視光 (Gaia DR3)**: ESA/Gaia/DPAC(Gaia Data Processing and Analysis Consortium)。CDS HiPS `CDS/P/DM/...I/355/gaiadr3` 経由
+- **紫外線 (GALEX NUV)**: NASA/Caltech GALEX。CDS HiPS `CDS/P/GALEXGR6_7/NUV` 経由
+- **X線 (ROSAT RASS)**: MPE(Max Planck Institute for Extraterrestrial Physics)ROSAT All-Sky Survey。CDS HiPS `ov-gso/P/RASS` 経由
+- **ガンマ線 (Fermi)**: NASA Fermi Gamma-ray Space Telescope, LAT Collaboration。CDS HiPS `CDS/P/Fermi/3` 経由
+- **可視光 (DSS2 Red)**: Digitized Sky Survey - STScI/NASA。**利用規約:
+  <http://archive.stsci.edu/dss/copyright.html>**(FITSヘッダーの`CPYRIGHT`カードに明記)
+
+いずれもCDS(Centre de Données astronomiques de Strasbourg, Université de
+Strasbourg/CNRS)のHiPSサービス・hips2fitsサービス経由で取得している。
