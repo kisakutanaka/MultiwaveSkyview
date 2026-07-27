@@ -3,6 +3,7 @@ import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { equatorialToGalactic, altAzToEquatorial } from "./astro/coords";
 import { galacticToWorldDirection } from "./astro/galacticToDirection";
 import { localSiderealTimeDeg } from "./astro/time";
+import { createCompassRing, disposeCompassRing } from "./scene/createCompassRing";
 import {
   DeviceOrientationTracker,
   isDeviceOrientationSupported,
@@ -26,18 +27,21 @@ export function isSkyLockSupported(): boolean {
 export class SkyLockController {
   private readonly camera: THREE.Camera;
   private readonly controls: OrbitControls;
+  private readonly scene: THREE.Scene;
   private readonly tracker = new DeviceOrientationTracker();
   private position: GeoPosition | null = null;
   private latestSample: DeviceOrientationSample | null = null;
   private noSampleTimer: number | null = null;
   private enabled = false;
   private readonly targetObject = new THREE.Object3D();
+  private compassRing: THREE.Group | null = null;
   /** Fired whenever `enabled` actually changes, including the internal no-sample auto-revert - lets UI stay in sync without polling. */
   onStateChange: ((enabled: boolean) => void) | null = null;
 
-  constructor(camera: THREE.Camera, controls: OrbitControls) {
+  constructor(camera: THREE.Camera, controls: OrbitControls, scene: THREE.Scene) {
     this.camera = camera;
     this.controls = controls;
+    this.scene = scene;
   }
 
   get isEnabled(): boolean {
@@ -60,6 +64,14 @@ export class SkyLockController {
     this.controls.enabled = false;
     this.enabled = true;
     this.onStateChange?.(true);
+
+    // Debug overlay: ground-truth N/E/S/W/zenith markers computed via the
+    // same astro pipeline used for the live camera direction, to help tell
+    // apart a sensor-side bug from a coordinate-math bug (see
+    // scene/createCompassRing.ts doc comment).
+    const lstDeg = localSiderealTimeDeg(new Date(), position.longitudeDeg);
+    this.compassRing = createCompassRing({ latDeg: position.latitudeDeg, lstDeg });
+    this.scene.add(this.compassRing);
 
     this.tracker.start((sample) => {
       this.latestSample = sample;
@@ -92,6 +104,11 @@ export class SkyLockController {
     this.position = null;
     this.controls.enabled = true;
     this.enabled = false;
+    if (this.compassRing) {
+      this.scene.remove(this.compassRing);
+      disposeCompassRing(this.compassRing);
+      this.compassRing = null;
+    }
     if (wasEnabled) {
       this.onStateChange?.(false);
     }

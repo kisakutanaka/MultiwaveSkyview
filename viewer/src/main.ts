@@ -71,7 +71,7 @@ let debugLookDirection: THREE.Vector3 | null = null;
   },
 };
 
-const skyLock = new SkyLockController(camera, controls);
+const skyLock = new SkyLockController(camera, controls, scene);
 
 if (isSkyLockSupported()) {
   const skyLockButton = createSkyLockButton(() => {
