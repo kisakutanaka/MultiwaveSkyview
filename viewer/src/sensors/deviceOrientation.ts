@@ -118,13 +118,25 @@ export class DeviceOrientationTracker {
   // Reset on every start() so a stale heading from a previous session
   // doesn't get compared against.
   private headingFilterState: OutlierFilterState = createOutlierFilterState();
+  // Captured once per start(), NOT re-read every event: window.screen.
+  // orientation.angle is a discrete 0/90/180/270 "which way is the UI
+  // rotated" value, and the OS's accelerometer-based auto-rotate decision
+  // that drives it can flip unexpectedly (e.g. 0 -> 180) purely from
+  // tilting the phone back to look at high altitude - no actual landscape/
+  // portrait rotation happened, but the sudden step in this correction
+  // term still shows up as a real, instantaneous ~180deg azimuth flip
+  // downstream (confirmed: alpha/beta/gamma stay smooth through the same
+  // moment). This app is used in a fixed grip pointed at the sky, so
+  // treating screen orientation as fixed for the session's duration is a
+  // safe assumption and sidesteps the issue entirely.
+  private screenAngleDeg = 0;
   private readonly handleEvent = (event: Event): void => {
     const orientationEvent = event as DeviceOrientationEvent;
     const iosHeading = (orientationEvent as CompassCapableEvent).webkitCompassHeading;
     const alphaDeg = resolveAlphaDeg(orientationEvent);
     const rawSample =
       alphaDeg !== null && orientationEvent.beta !== null && orientationEvent.gamma !== null
-        ? computeAltAz(alphaDeg, orientationEvent.beta, orientationEvent.gamma, screenOrientationAngleDeg())
+        ? computeAltAz(alphaDeg, orientationEvent.beta, orientationEvent.gamma, this.screenAngleDeg)
         : null;
     const sample = rawSample
       ? {
@@ -153,6 +165,7 @@ export class DeviceOrientationTracker {
     this.listener = listener;
     this.debugListener = debugListener ?? null;
     this.headingFilterState = createOutlierFilterState();
+    this.screenAngleDeg = screenOrientationAngleDeg();
     window.addEventListener("deviceorientationabsolute", this.handleEvent, true);
     window.addEventListener("deviceorientation", this.handleEvent, true);
   }

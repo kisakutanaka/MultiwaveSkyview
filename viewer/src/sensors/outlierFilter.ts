@@ -38,7 +38,7 @@ export function createOutlierFilterState(): OutlierFilterState {
 // 1000deg/sec sustained even at a slow ~15Hz event rate), but tight enough
 // to meaningfully damp single- and multi-frame sensor noise into a smooth
 // creep instead of a snap.
-const MAX_STEP_DEG = 15;
+export const DEFAULT_MAX_STEP_DEG = 15;
 
 /** Signed difference `a - b`, for plain (non-circular) angles like altitude. */
 export function linearDeltaDeg(a: number, b: number): number {
@@ -50,11 +50,21 @@ export function circularDeltaDeg(a: number, b: number): number {
   return ((((a - b) % 360) + 540) % 360) - 180;
 }
 
-/** Mutates `state` in place and returns the value to actually use this sample. `deltaFn` should return `a - b` (or its circular equivalent). */
+/**
+ * Mutates `state` in place and returns the value to actually use this
+ * sample. `deltaFn` should return `a - b` (or its circular equivalent).
+ * `maxStepDeg` overrides the default per-call max step - see
+ * deviceOrientation.ts's azimuthMaxStepDeg() for why azimuth needs a
+ * smaller, beta-dependent cap instead of the fixed default: a plain fixed
+ * rate limit still "catches up" to sustained multi-frame gimbal-lock noise
+ * within a few frames (fast enough to still read as a jump to a human eye,
+ * even though each individual step is small and continuous).
+ */
 export function filterOutlier(
   state: OutlierFilterState,
   rawDeg: number,
   deltaFn: (a: number, b: number) => number,
+  maxStepDeg: number = DEFAULT_MAX_STEP_DEG,
 ): number {
   if (state.lastAcceptedDeg === null) {
     state.lastAcceptedDeg = rawDeg;
@@ -62,7 +72,7 @@ export function filterOutlier(
   }
 
   const delta = deltaFn(rawDeg, state.lastAcceptedDeg);
-  const clampedDelta = Math.max(-MAX_STEP_DEG, Math.min(MAX_STEP_DEG, delta));
+  const clampedDelta = Math.max(-maxStepDeg, Math.min(maxStepDeg, delta));
   state.lastAcceptedDeg += clampedDelta;
   return state.lastAcceptedDeg;
 }

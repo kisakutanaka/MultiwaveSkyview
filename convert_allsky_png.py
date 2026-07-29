@@ -28,7 +28,6 @@ Notes:
 from __future__ import annotations
 
 import argparse
-import warnings
 
 import numpy as np
 from astropy.io import fits
@@ -36,81 +35,7 @@ from PIL import Image
 
 from allsky_surveys import PNG_DIR, PNG_HEIGHT, PNG_WIDTH, SURVEYS
 from download_allsky_fits import raw_path_for
-
-DEFAULT_STRENGTH = {
-    "asinh": 10.0,
-    "log": 1000.0,
-}
-
-
-def downsample_mean(data: np.ndarray, out_width: int, out_height: int) -> np.ndarray:
-    """
-    Area-average downsample by an exact integer factor.
-
-    A block that's only partially covered (some NaN pixels - e.g. GALEX's
-    incomplete sky coverage) still gets a valid mean from just its finite
-    pixels; a block that's *entirely* uncovered stays NaN, matching how
-    stretch_image() already treats individual NaN pixels. Downsampling the
-    raw data before stretching (rather than shrinking the stretched 8-bit
-    PNG afterward) also acts as a noise-reducing low-pass filter and keeps
-    the percentile-based black/white points computed on the resolution
-    actually being exported.
-    """
-    in_height, in_width = data.shape
-    if in_width % out_width or in_height % out_height:
-        raise ValueError(
-            f"Input size {in_width}x{in_height} is not an integer multiple of "
-            f"output size {out_width}x{out_height}."
-        )
-    factor_x = in_width // out_width
-    factor_y = in_height // out_height
-    reshaped = data.reshape(out_height, factor_y, out_width, factor_x)
-    with warnings.catch_warnings():
-        # An all-NaN block correctly produces NaN via nanmean; the RuntimeWarning
-        # it raises for that case is expected here, not a bug to surface.
-        warnings.simplefilter("ignore", category=RuntimeWarning)
-        return np.nanmean(reshaped, axis=(1, 3))
-
-
-def stretch_image(
-    data: np.ndarray,
-    min_percentile: float,
-    max_percentile: float,
-    stretch: str,
-    strength: float | None = None,
-) -> np.ndarray:
-    data = np.asarray(data, dtype=np.float32)
-
-    finite = np.isfinite(data)
-    if not np.any(finite):
-        raise ValueError("FITS image contains no finite pixels.")
-
-    valid_values = data[finite]
-    low, high = np.nanpercentile(
-        valid_values,
-        [min_percentile, max_percentile],
-    )
-
-    if not np.isfinite(low) or not np.isfinite(high) or high <= low:
-        low = float(np.nanmin(valid_values))
-        high = float(np.nanmax(valid_values))
-
-    normalized = (data - low) / max(high - low, np.finfo(np.float32).eps)
-    normalized = np.clip(normalized, 0.0, 1.0)
-
-    if stretch == "asinh":
-        strength = strength if strength is not None else DEFAULT_STRENGTH["asinh"]
-        normalized = np.arcsinh(strength * normalized) / np.arcsinh(strength)
-    elif stretch == "sqrt":
-        normalized = np.sqrt(normalized)
-    elif stretch == "log":
-        strength = strength if strength is not None else DEFAULT_STRENGTH["log"]
-        normalized = np.log1p(strength * normalized) / np.log1p(strength)
-    elif stretch != "linear":
-        raise ValueError(f"Unknown stretch: {stretch}")
-
-    normalized[~finite] = 0.0
-    return np.round(normalized * 255.0).astype(np.uint8)
+from image_processing import downsample_mean, stretch_image
 
 
 def fits_to_png(

@@ -1,0 +1,68 @@
+{
+  "00_radio_haslam_408mhz": {
+    "colormap": "gray",
+    "custom_colors": null,
+    "gamma": 1.0,
+    "max_percentile": 99.7,
+    "min_percentile": 1.0,
+    "output_width": 2048,
+    "strength": 10.0,
+    "stretch": "asinh"
+  },
+  "__composite__": {
+    "02c_visible_dss2_red+00_radio_haslam_408mhz": {
+      "blue": {
+        "gamma": 1.0,
+        "max_percentile": 99.7,
+        "min_percentile": 1.0,
+        "strength": 10.0,
+        "stretch": "asinh"
+      },
+      "green_mode": "average",
+      "output_width": 2048,
+      "red": {
+        "gamma": 1.0,
+        "max_percentile": 99.8,
+        "min_percentile": 5.0,
+        "strength": 10.0,
+        "stretch": "asinh"
+      }
+    },
+    "02c_visible_dss2_red+01_infrared_akari_90um": {
+      "blue": {
+        "gamma": 1.0,
+        "max_percentile": 99.7,
+        "min_percentile": 1.0,
+        "strength": 10.0,
+        "stretch": "asinh"
+      },
+      "green_mode": "average",
+      "output_width": 2048,
+      "red": {
+        "gamma": 1.0,
+        "max_percentile": 99.8,
+        "min_percentile": 5.0,
+        "strength": 10.0,
+        "stretch": "asinh"
+      }
+    },
+    "02c_visible_dss2_red+02c_visible_dss2_red": {
+      "blue": {
+        "gamma": 1.0,
+        "max_percentile": 99.8,
+        "min_percentile": 5.0,
+        "strength": 10.0,
+        "stretch": "asinh"
+      },
+      "green_mode": "average",
+      "output_width": 2048,
+      "red": {
+        "gamma": 1.0,
+        "max_percentile": 99.8,
+        "min_percentile": 5.0,
+        "strength": 10.0,
+        "stretch": "asinh"
+      }
+    }
+  }
+}
