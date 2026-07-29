@@ -149,8 +149,19 @@ export class SkyLockController {
     const galactic = equatorialToGalactic(equatorial);
     const direction = galacticToWorldDirection(galactic.lDeg, galactic.bDeg);
 
+    // The "up" reference for lookAt()'s roll disambiguation must be the
+    // OBSERVER'S REAL zenith (mapped through the same astro pipeline), not
+    // camera.up (Three.js's arbitrary fixed world Y-axis, unrelated to
+    // where "straight up" actually is for this lat/time). Using camera.up
+    // disambiguated roll against the wrong reference, so the rendered sky
+    // appeared increasingly tilted as altitude changed even after azimuth
+    // was fixed.
+    const zenithEquatorial = altAzToEquatorial({ altDeg: 90, azDeg: 0 }, this.position.latitudeDeg, lstDeg);
+    const zenithGalactic = equatorialToGalactic(zenithEquatorial);
+    const worldZenith = galacticToWorldDirection(zenithGalactic.lDeg, zenithGalactic.bDeg);
+
     this.targetObject.position.copy(this.camera.position);
-    this.targetObject.up.copy(this.camera.up);
+    this.targetObject.up.copy(worldZenith);
     this.targetObject.lookAt(direction);
     this.currentQuaternion.slerp(this.targetObject.quaternion, SMOOTHING_FACTOR);
     // Force-overwrite: must run after controls.update() (see field comment
