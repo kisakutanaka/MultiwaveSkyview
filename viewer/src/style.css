@@ -130,8 +130,50 @@ body {
   white-space: nowrap;
 }
 
+#heading-check-panel {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 15;
+  max-width: min(260px, calc(100vw - 16px));
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #eee;
+  box-sizing: border-box;
+}
+
+#heading-check-panel button {
+  padding: 6px 12px;
+  border: 1px solid #777;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #eee;
+  font-size: 13px;
+}
+
+#heading-check-panel .heading-big {
+  margin-top: 8px;
+  font-size: 40px;
+  font-weight: bold;
+  line-height: 1.1;
+}
+
+#heading-check-panel .heading-detail {
+  margin-top: 4px;
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+#heading-check-panel.hidden,
+#heading-check-panel .hidden {
+  display: none;
+}
+
 .ui-hidden #debug-panel,
 .ui-hidden #sky-lock-button,
-.ui-hidden #sensor-debug-panel {
+.ui-hidden #sensor-debug-panel,
+.ui-hidden #heading-check-panel {
   display: none;
 }

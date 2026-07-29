@@ -12,6 +12,7 @@ import { createSkySphere } from "./scene/createSkySphere";
 import { isSkyLockSupported, SkyLockController } from "./skyLock";
 import type { LayerState } from "./types";
 import { createDebugPanel } from "./ui/debugPanel";
+import { createHeadingCheckPanel } from "./ui/headingCheckPanel";
 import { createSensorDebugPanel } from "./ui/sensorDebugPanel";
 import { createSkyLockButton } from "./ui/skyLockButton";
 import { createUiVisibilityToggle } from "./ui/uiVisibilityToggle";
@@ -105,6 +106,7 @@ if (isSkyLockSupported()) {
   };
 }
 
+app.appendChild(createHeadingCheckPanel());
 app.appendChild(createUiVisibilityToggle(app));
 
 function animate(): void {
