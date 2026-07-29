@@ -22,10 +22,10 @@ function dataUrl(path: string): string {
 
 export const SURVEYS: SurveyConfig[] = [
   {
-    kind: "scalar",
+    kind: "color",
     name: "00_radio_haslam_408mhz",
     label: "電波 (Haslam 408MHz)",
-    rawUrl: dataUrl("png/00_radio_haslam_408mhz.png"),
+    rawUrl: dataUrl("png_colored/00_radio_haslam_408mhz.png"),
   },
   {
     kind: "color",
@@ -34,22 +34,10 @@ export const SURVEYS: SurveyConfig[] = [
     rawUrl: dataUrl("png_colored/01_infrared_akari_90um.png"),
   },
   {
-    kind: "scalar",
+    kind: "color",
     name: "02_visible_gaia_dr3_density",
     label: "可視光 (Gaia DR3 密度マップ)",
-    rawUrl: dataUrl("png/02_visible_gaia_dr3_density.png"),
-  },
-  {
-    kind: "color",
-    name: "02b_visible_gaia_dr3_color",
-    label: "可視光カラー (Gaia DR3 RGBフラックス)",
-    rawUrl: dataUrl("png/02b_visible_gaia_dr3_color.png"),
-  },
-  {
-    kind: "scalar",
-    name: "02c_visible_dss2_red",
-    label: "可視光 (DSS2 Red)",
-    rawUrl: dataUrl("png/02c_visible_dss2_red.png"),
+    rawUrl: dataUrl("png_colored/02_visible_gaia_dr3_density.png"),
   },
   {
     kind: "color",
@@ -58,22 +46,22 @@ export const SURVEYS: SurveyConfig[] = [
     rawUrl: dataUrl("png_colored/02c_visible_dss2_red+02d_visible_dss2_blue_rgb.png"),
   },
   {
-    kind: "scalar",
+    kind: "color",
     name: "03_ultraviolet_galex_nuv",
     label: "紫外線 (GALEX NUV)",
-    rawUrl: dataUrl("png/03_ultraviolet_galex_nuv.png"),
+    rawUrl: dataUrl("png_colored/03_ultraviolet_galex_nuv.png"),
   },
   {
-    kind: "scalar",
+    kind: "color",
     name: "04_xray_rosat_rass",
     label: "X線 (ROSAT RASS)",
-    rawUrl: dataUrl("png/04_xray_rosat_rass.png"),
+    rawUrl: dataUrl("png_colored/04_xray_rosat_rass.png"),
   },
   {
-    kind: "scalar",
+    kind: "color",
     name: "05_gamma_fermi_300_1000mev",
     label: "ガンマ線 (Fermi 300-1000MeV)",
-    rawUrl: dataUrl("png/05_gamma_fermi_300_1000mev.png"),
+    rawUrl: dataUrl("png_colored/05_gamma_fermi_300_1000mev.png"),
   },
 ];
 
