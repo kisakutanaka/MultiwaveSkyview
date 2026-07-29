@@ -51,8 +51,8 @@ export const SURVEYS: SurveyConfig[] = [
     label: "可視光 (DSS2 Red)",
     rawUrl: dataUrl("png/02c_visible_dss2_red.png"),
   },
-    {
-    kind: "scalar",
+  {
+    kind: "color",
     name: "02c_visible_dss2_red+02d_visible_dss2_blue_rgb",
     label: "可視光 (DSS2 rgb)",
     rawUrl: dataUrl("png_colored/02c_visible_dss2_red+02d_visible_dss2_blue_rgb.png"),
