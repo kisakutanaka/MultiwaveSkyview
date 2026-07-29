@@ -36,6 +36,16 @@ export class SkyLockController {
   private enabled = false;
   private readonly targetObject = new THREE.Object3D();
   private compassRing: THREE.Group | null = null;
+  // Smoothing state kept independent of camera.quaternion: OrbitControls.update()
+  // (called before skyLock.update() every frame in main.ts's animate loop)
+  // unconditionally re-asserts its own tracked orientation onto the camera
+  // even while controls.enabled=false. Slerping camera.quaternion in place
+  // would therefore always start from that stale OrbitControls pose instead
+  // of last frame's actual sky-lock result, making the camera perpetually
+  // snap back toward it. Slerping our own persisted quaternion and then
+  // force-overwriting camera.quaternion with it (after controls.update() has
+  // already run) sidesteps this.
+  private readonly currentQuaternion = new THREE.Quaternion();
   /** Fired whenever `enabled` actually changes, including the internal no-sample auto-revert - lets UI stay in sync without polling. */
   onStateChange: ((enabled: boolean) => void) | null = null;
   /** Fired on every raw sensor event, including rejected ones - for an on-screen debug readout on devices without a remote debugger attached. */
@@ -66,6 +76,7 @@ export class SkyLockController {
     this.latestSample = null;
     this.controls.enabled = false;
     this.enabled = true;
+    this.currentQuaternion.copy(this.camera.quaternion);
     this.onStateChange?.(true);
 
     // Debug overlay: ground-truth N/E/S/W/zenith markers computed via the
@@ -134,6 +145,9 @@ export class SkyLockController {
     this.targetObject.position.copy(this.camera.position);
     this.targetObject.up.copy(this.camera.up);
     this.targetObject.lookAt(direction);
-    this.camera.quaternion.slerp(this.targetObject.quaternion, SMOOTHING_FACTOR);
+    this.currentQuaternion.slerp(this.targetObject.quaternion, SMOOTHING_FACTOR);
+    // Force-overwrite: must run after controls.update() (see field comment
+    // on currentQuaternion above) to win the fight over camera.quaternion.
+    this.camera.quaternion.copy(this.currentQuaternion);
   }
 }
