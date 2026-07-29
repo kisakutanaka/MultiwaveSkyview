@@ -13,6 +13,16 @@ from typing import Final
 WIDTH: Final[int] = 8192
 HEIGHT: Final[int] = 4096
 
+# Exported PNG texture resolution - deliberately smaller than the
+# downloaded raw (FITS/color) resolution above to keep what ships to the
+# browser light. convert_allsky_png.py area-downsamples the raw data to
+# this size during conversion; it is never re-fetched at this resolution,
+# so retuning stretch parameters per survey never needs network access.
+# Must evenly divide WIDTH/HEIGHT (downsample_mean() requires an exact
+# integer factor).
+PNG_WIDTH: Final[int] = 2048
+PNG_HEIGHT: Final[int] = 1024
+
 OUTPUT_DIR = Path("allsky_textures")
 FITS_DIR = OUTPUT_DIR / "fits"
 PNG_DIR = OUTPUT_DIR / "png"

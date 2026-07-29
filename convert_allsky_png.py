@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Convert downloaded all-sky raw files (see download_allsky_fits.py) into
-8192x4096 equirectangular PNG sphere textures.
+2:1 equirectangular PNG sphere textures, at allsky_surveys.PNG_WIDTH x
+PNG_HEIGHT (area-downsampled from the raw WIDTH x HEIGHT resolution).
 
 Install:
     python -m pip install astropy numpy pillow
@@ -13,10 +14,13 @@ Run:
 
 Notes:
 - The textures are 2:1 equirectangular images suitable for sphere mapping.
+- Downsampling to PNG_WIDTH x PNG_HEIGHT happens here, not at download
+  time, so retuning stretch/percentile parameters per survey never needs
+  a fresh hips2fits fetch - only this conversion step re-runs.
 - GALEX does not cover 100% of the sky; uncovered areas become black.
 - CLI overrides apply only to "scalar" surveys; "color" surveys (e.g. the
   Gaia DR3 RGB flux map) are pre-rendered and copied through unchanged
-  except for the north-up flip.
+  except for the north-up flip and the same downsample.
 - CLI overrides apply to every selected scalar survey for this run;
   per-survey defaults live in allsky_surveys.SURVEYS.
 """
@@ -24,18 +28,48 @@ Notes:
 from __future__ import annotations
 
 import argparse
+import warnings
 
 import numpy as np
 from astropy.io import fits
 from PIL import Image
 
-from allsky_surveys import PNG_DIR, SURVEYS
+from allsky_surveys import PNG_DIR, PNG_HEIGHT, PNG_WIDTH, SURVEYS
 from download_allsky_fits import raw_path_for
 
 DEFAULT_STRENGTH = {
     "asinh": 10.0,
     "log": 1000.0,
 }
+
+
+def downsample_mean(data: np.ndarray, out_width: int, out_height: int) -> np.ndarray:
+    """
+    Area-average downsample by an exact integer factor.
+
+    A block that's only partially covered (some NaN pixels - e.g. GALEX's
+    incomplete sky coverage) still gets a valid mean from just its finite
+    pixels; a block that's *entirely* uncovered stays NaN, matching how
+    stretch_image() already treats individual NaN pixels. Downsampling the
+    raw data before stretching (rather than shrinking the stretched 8-bit
+    PNG afterward) also acts as a noise-reducing low-pass filter and keeps
+    the percentile-based black/white points computed on the resolution
+    actually being exported.
+    """
+    in_height, in_width = data.shape
+    if in_width % out_width or in_height % out_height:
+        raise ValueError(
+            f"Input size {in_width}x{in_height} is not an integer multiple of "
+            f"output size {out_width}x{out_height}."
+        )
+    factor_x = in_width // out_width
+    factor_y = in_height // out_height
+    reshaped = data.reshape(out_height, factor_y, out_width, factor_x)
+    with warnings.catch_warnings():
+        # An all-NaN block correctly produces NaN via nanmean; the RuntimeWarning
+        # it raises for that case is expected here, not a bug to surface.
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        return np.nanmean(reshaped, axis=(1, 3))
 
 
 def stretch_image(
@@ -97,13 +131,17 @@ def fits_to_png(
                 f"Expected a 2D FITS image, got shape {data.shape}: {fits_path}"
             )
 
-        image_data = stretch_image(
-            data,
-            min_percentile=min_percentile,
-            max_percentile=max_percentile,
-            stretch=stretch,
-            strength=strength,
-        )
+        data = np.asarray(data, dtype=np.float32)
+
+    data = downsample_mean(data, PNG_WIDTH, PNG_HEIGHT)
+
+    image_data = stretch_image(
+        data,
+        min_percentile=min_percentile,
+        max_percentile=max_percentile,
+        stretch=stretch,
+        strength=strength,
+    )
 
     # FITS/WCS vertical direction and image texture direction can differ.
     # This flip produces north at the top in the exported PNG.
@@ -121,6 +159,9 @@ def color_to_png(raw_path, png_path) -> None:
         image = image.convert("RGB")
         # Matches the flip applied to scalar surveys so north stays up.
         image = image.transpose(Image.FLIP_TOP_BOTTOM)
+        # BOX = area averaging, the equivalent of downsample_mean() above
+        # for an already-rendered RGB image (exact integer factor here too).
+        image = image.resize((PNG_WIDTH, PNG_HEIGHT), Image.Resampling.BOX)
         image.save(png_path, optimize=False, compress_level=4)
 
     print(f"[saved] {png_path}")
