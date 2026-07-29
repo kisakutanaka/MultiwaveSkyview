@@ -1,8 +1,5 @@
 import * as THREE from "three";
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { equatorialToGalactic, altAzToEquatorial } from "./astro/coords";
-import { galacticToWorldDirection } from "./astro/galacticToDirection";
-import { localSiderealTimeDeg } from "./astro/time";
 import { createCompassRing, disposeCompassRing } from "./scene/createCompassRing";
 import {
   DeviceOrientationTracker,
@@ -12,6 +9,8 @@ import {
   type DeviceOrientationSample,
 } from "./sensors/deviceOrientation";
 import { isGeolocationSupported, requestGeoPosition, type GeoPosition } from "./sensors/geolocation";
+import { computeSkyDirectionQuaternion } from "./skyCameraOrientation";
+import { localSiderealTimeDeg } from "./astro/time";
 
 const NO_SAMPLE_TIMEOUT_MS = 5000;
 // Fraction of the remaining angular gap closed per frame: smooths out raw
@@ -34,14 +33,6 @@ export class SkyLockController {
   private latestSample: DeviceOrientationSample | null = null;
   private noSampleTimer: number | null = null;
   private enabled = false;
-  // Deliberately THREE.Camera, not Object3D: Object3D.prototype.lookAt()
-  // special-cases `this.isCamera` and swaps the eye/target argument order
-  // for non-camera objects (see three/src/core/Object3D.js), producing a
-  // quaternion rotated 180deg from what camera.lookAt(direction) would give
-  // for the same inputs. Using a plain Object3D here silently pointed the
-  // camera at the exact opposite of the intended sky direction (confirmed:
-  // facing real south showed the north sky).
-  private readonly targetObject = new THREE.Camera();
   private compassRing: THREE.Group | null = null;
   // Smoothing state kept independent of camera.quaternion: OrbitControls.update()
   // (called before skyLock.update() every frame in main.ts's animate loop)
@@ -144,36 +135,8 @@ export class SkyLockController {
       return;
     }
 
-    const lstDeg = localSiderealTimeDeg(new Date(), this.position.longitudeDeg);
-    const equatorial = altAzToEquatorial(this.latestSample, this.position.latitudeDeg, lstDeg);
-    const galactic = equatorialToGalactic(equatorial);
-    const direction = galacticToWorldDirection(galactic.lDeg, galactic.bDeg);
-
-    // The "up" reference for lookAt()'s roll disambiguation must be the
-    // OBSERVER'S REAL zenith (mapped through the same astro pipeline), not
-    // camera.up (Three.js's arbitrary fixed world Y-axis, unrelated to
-    // where "straight up" actually is for this lat/time).
-    //
-    // This is deliberately a FIXED far-away point (not a hint tied to the
-    // current sample a few degrees off `direction`): lookAt()'s internal
-    // cross product `up x forward` is numerically stable exactly when the
-    // two vectors are far apart (close to perpendicular) and unstable when
-    // they're nearly parallel - using a hint only ~1deg from `direction`
-    // (tried and reverted) kept them nearly parallel at EVERY altitude,
-    // making roll unstable everywhere instead of just near the true zenith.
-    // The true zenith stays properly perpendicular-ish to `direction` across
-    // the whole normal operating range and only degenerates in the narrow
-    // region actually at the zenith itself - an unavoidable singularity
-    // shared by any az/alt sky viewer (real planetarium apps have the same
-    // roll ambiguity looking straight up).
-    const zenithEquatorial = altAzToEquatorial({ altDeg: 90, azDeg: 0 }, this.position.latitudeDeg, lstDeg);
-    const zenithGalactic = equatorialToGalactic(zenithEquatorial);
-    const worldZenith = galacticToWorldDirection(zenithGalactic.lDeg, zenithGalactic.bDeg);
-
-    this.targetObject.position.copy(this.camera.position);
-    this.targetObject.up.copy(worldZenith);
-    this.targetObject.lookAt(direction);
-    this.currentQuaternion.slerp(this.targetObject.quaternion, SMOOTHING_FACTOR);
+    const target = computeSkyDirectionQuaternion(this.latestSample, this.position, new Date());
+    this.currentQuaternion.slerp(target, SMOOTHING_FACTOR);
     // Force-overwrite: must run after controls.update() (see field comment
     // on currentQuaternion above) to win the fight over camera.quaternion.
     this.camera.quaternion.copy(this.currentQuaternion);

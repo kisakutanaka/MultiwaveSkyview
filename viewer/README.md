@@ -17,6 +17,20 @@ npm run dev
 `python ../download_allsky_fits.py --survey 02b_visible_gaia_dr3_color` の後
 `python ../convert_allsky_png.py --survey 02b_visible_gaia_dr3_color`)。
 
+## テスト
+
+```bash
+npm test
+```
+
+`astro/`(座標変換)・`galacticToDirection.ts`(銀河座標→ワールド方向)・
+`scene/createCompassRing.ts`(リング幾何)・`skyCameraOrientation.ts`
+(カメラへの反映)に対するVitestの回帰テスト。実際の空と同期モードのデバッグで
+発見・修正したバグ(南北反転、`Object3D.lookAt()`の180°反転、`up`基準の誤り、
+天頂特異点)がすべて回帰テストとして残っている。実機テストなしでも
+`npm test`だけである程度の変更の妥当性を確認できる
+(詳細な経緯は[`../docs/sky-lock-debug-plan.md`](../docs/sky-lock-debug-plan.md))。
+
 ## データ形式(FITSではなくPNG)
 
 当初はFITSを直接ブラウザで読み、stretch/colormapをクライアント側で自由に
