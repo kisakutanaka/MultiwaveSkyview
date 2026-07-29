@@ -21,16 +21,18 @@ function directionFor(altDeg: number, azDeg: number): THREE.Vector3 {
 }
 
 describe("createCompassRing", () => {
-  it("every horizon-ring point sits at exactly the ring radius", () => {
+  it("every point on every ring (horizon + 2 meridians) sits at exactly the ring radius", () => {
     const group = createCompassRing({ latDeg: LAT_DEG, lstDeg: LST_DEG });
-    const line = group.children.find((c): c is THREE.LineLoop => c.type === "LineLoop");
-    expect(line).toBeDefined();
+    const lines = group.children.filter((c): c is THREE.LineLoop => c.type === "LineLoop");
+    expect(lines.length).toBeGreaterThan(0);
 
-    const positions = line!.geometry.attributes.position;
     let maxError = 0;
-    for (let i = 0; i < positions.count; i++) {
-      const r = Math.hypot(positions.getX(i), positions.getY(i), positions.getZ(i));
-      maxError = Math.max(maxError, Math.abs(r - RING_RADIUS));
+    for (const line of lines) {
+      const positions = line.geometry.attributes.position;
+      for (let i = 0; i < positions.count; i++) {
+        const r = Math.hypot(positions.getX(i), positions.getY(i), positions.getZ(i));
+        maxError = Math.max(maxError, Math.abs(r - RING_RADIUS));
+      }
     }
     expect(maxError).toBeLessThan(1e-4);
 
@@ -58,12 +60,63 @@ describe("createCompassRing", () => {
     }
   });
 
-  it("builds exactly one ring line + 5 labels (N/E/S/W/Z)", () => {
+  it("nadir is antipodal to zenith", () => {
+    const zenith = directionFor(90, 0);
+    const nadir = directionFor(-90, 0);
+    expect(zenith.clone().add(nadir).length()).toBeLessThan(1e-6);
+  });
+
+  it("the N/S meridian ring passes through zenith, N horizon, nadir, and S horizon", () => {
+    // Mirrors meridianRingPoints(0, opts) in createCompassRing.ts: phi=0/90/180/270
+    // should land on zenith / N horizon / nadir / S horizon respectively.
+    const zenith = directionFor(90, 0).multiplyScalar(RING_RADIUS);
+    const north = directionFor(0, 0).multiplyScalar(RING_RADIUS);
+    const nadir = directionFor(-90, 0).multiplyScalar(RING_RADIUS);
+    const south = directionFor(0, 180).multiplyScalar(RING_RADIUS);
+
+    const group = createCompassRing({ latDeg: LAT_DEG, lstDeg: LST_DEG });
+    const lines = group.children.filter((c): c is THREE.LineLoop => c.type === "LineLoop");
+    // horizon ring first, then N/S meridian, then E/W meridian (creation order).
+    const meridian = lines[1]!;
+    const positions = meridian.geometry.attributes.position;
+    const stepCount = positions.count - 1; // last point duplicates the first (LineLoop over a closed sampled curve)
+    const at = (fraction: number) => {
+      const i = Math.round(fraction * stepCount);
+      return new THREE.Vector3(positions.getX(i), positions.getY(i), positions.getZ(i));
+    };
+
+    expect(at(0).distanceTo(zenith)).toBeLessThan(0.1);
+    expect(at(0.25).distanceTo(north)).toBeLessThan(0.1);
+    expect(at(0.5).distanceTo(nadir)).toBeLessThan(0.1);
+    expect(at(0.75).distanceTo(south)).toBeLessThan(0.1);
+
+    disposeCompassRing(group);
+  });
+
+  it("the horizon ring and the two meridian rings are mutually perpendicular planes", () => {
+    // Each ring's plane normal is (a point on the ring) x (another point on
+    // the ring); perpendicular rings should have perpendicular normals.
+    const horizonNormal = directionFor(0, 0).clone().cross(directionFor(0, 90)).normalize();
+    const nsMeridianNormal = directionFor(90, 0).clone().cross(directionFor(0, 0)).normalize();
+    const ewMeridianNormal = directionFor(90, 0).clone().cross(directionFor(0, 90)).normalize();
+
+    for (const [a, b] of [
+      [horizonNormal, nsMeridianNormal],
+      [horizonNormal, ewMeridianNormal],
+      [nsMeridianNormal, ewMeridianNormal],
+    ] as const) {
+      const angleDeg = THREE.MathUtils.radToDeg(a.angleTo(b));
+      const deviationFrom90 = Math.min(Math.abs(angleDeg - 90), Math.abs(angleDeg - 270));
+      expect(deviationFrom90).toBeLessThan(0.5);
+    }
+  });
+
+  it("builds exactly 3 ring lines (horizon + 2 meridians) + 6 labels (N/E/S/W/Z/nadir)", () => {
     const group = createCompassRing({ latDeg: LAT_DEG, lstDeg: LST_DEG });
     const lines = group.children.filter((c) => c.type === "LineLoop");
     const sprites = group.children.filter((c) => c.type === "Sprite");
-    expect(lines).toHaveLength(1);
-    expect(sprites).toHaveLength(5);
+    expect(lines).toHaveLength(3);
+    expect(sprites).toHaveLength(6);
     disposeCompassRing(group);
   });
 });

@@ -18,6 +18,42 @@ function directionForAltAz(altDeg: number, azDeg: number, opts: CompassRingOptio
   return galacticToWorldDirection(galactic.lDeg, galactic.bDeg);
 }
 
+function horizonRingPoints(opts: CompassRingOptions): THREE.Vector3[] {
+  const points: THREE.Vector3[] = [];
+  for (let i = 0; i <= RING_STEPS; i++) {
+    const az = (360 * i) / RING_STEPS;
+    points.push(directionForAltAz(0, az, opts).multiplyScalar(RING_RADIUS));
+  }
+  return points;
+}
+
+/**
+ * A great circle through the zenith and nadir, at reference azimuth
+ * `azRefDeg` on one side and `azRefDeg+180` on the other - i.e. the
+ * "meridian" ring you'd sweep through by tilting (changing altitude) at a
+ * fixed azimuth. Parameterized by a single angle phiDeg in [0,360) so it
+ * traces zenith -> azRefDeg horizon -> nadir -> (azRefDeg+180) horizon ->
+ * back to zenith, one continuous loop.
+ */
+function meridianRingPoints(azRefDeg: number, opts: CompassRingOptions): THREE.Vector3[] {
+  const points: THREE.Vector3[] = [];
+  for (let i = 0; i <= RING_STEPS; i++) {
+    const phi = (360 * i) / RING_STEPS;
+    const direction =
+      phi <= 180 ? directionForAltAz(90 - phi, azRefDeg, opts) : directionForAltAz(phi - 270, azRefDeg + 180, opts);
+    points.push(direction.multiplyScalar(RING_RADIUS));
+  }
+  return points;
+}
+
+function createRingLine(points: THREE.Vector3[], color: number): THREE.LineLoop {
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({ color, depthTest: false, transparent: true });
+  const line = new THREE.LineLoop(geometry, material);
+  line.renderOrder = 998;
+  return line;
+}
+
 function createLabelSprite(text: string, color: string): THREE.Sprite {
   const canvas = document.createElement("canvas");
   canvas.width = 128;
@@ -41,10 +77,18 @@ function createLabelSprite(text: string, color: string): THREE.Sprite {
 }
 
 /**
- * Debug overlay: renders the true horizon ring (alt=0), N/E/S/W + zenith
- * markers at the observer's current lat/LST, using the exact same
+ * Debug overlay: renders three mutually-perpendicular great circles (like a
+ * 3D-editor rotation gizmo) plus N/E/S/W/zenith/nadir markers, at the
+ * observer's current lat/LST, using the exact same
  * AltAz -> Equatorial -> Galactic -> world-direction pipeline the live
- * sky-lock camera uses (astro/coords.ts, astro/galacticToDirection.ts).
+ * sky-lock camera uses (astro/coords.ts, astro/galacticToDirection.ts):
+ *
+ * - Horizon ring (alt=0, green): sweeping this = panning (azimuth).
+ * - N/S meridian (through zenith/nadir at az=0/180, orange): sweeping this
+ *   at az=0 = tilting (altitude) while facing north.
+ * - E/W meridian (through zenith/nadir at az=90/270, purple): sweeping this
+ *   at az=90 = tilting while facing east; also the ring roll rotates
+ *   around when the camera's "up" reference is disambiguated near it.
  *
  * Diagnostic use: if the camera doesn't point at "N" while the phone is
  * physically pointed north, the bug is upstream in sensor -> AltAz
@@ -57,16 +101,9 @@ export function createCompassRing(opts: CompassRingOptions): THREE.Group {
   const group = new THREE.Group();
   group.name = "compass-ring-debug";
 
-  const points: THREE.Vector3[] = [];
-  for (let i = 0; i <= RING_STEPS; i++) {
-    const az = (360 * i) / RING_STEPS;
-    points.push(directionForAltAz(0, az, opts).multiplyScalar(RING_RADIUS));
-  }
-  const ringGeometry = new THREE.BufferGeometry().setFromPoints(points);
-  const ringMaterial = new THREE.LineBasicMaterial({ color: 0x00ff88, depthTest: false, transparent: true });
-  const ring = new THREE.LineLoop(ringGeometry, ringMaterial);
-  ring.renderOrder = 998;
-  group.add(ring);
+  group.add(createRingLine(horizonRingPoints(opts), 0x00ff88));
+  group.add(createRingLine(meridianRingPoints(0, opts), 0xffaa00));
+  group.add(createRingLine(meridianRingPoints(90, opts), 0xaa66ff));
 
   const cardinals: Array<[string, number, string]> = [
     ["N", 0, "#ff4444"],
@@ -83,6 +120,12 @@ export function createCompassRing(opts: CompassRingOptions): THREE.Group {
   const zenithSprite = createLabelSprite("Z", "#ffffff");
   zenithSprite.position.copy(directionForAltAz(90, 0, opts).multiplyScalar(LABEL_RADIUS));
   group.add(zenithSprite);
+
+  // Lowercase "z" (vs. zenith's uppercase "Z") to keep every label a single
+  // glyph at this sprite's fixed font size.
+  const nadirSprite = createLabelSprite("z", "#888888");
+  nadirSprite.position.copy(directionForAltAz(-90, 0, opts).multiplyScalar(LABEL_RADIUS));
+  group.add(nadirSprite);
 
   return group;
 }
