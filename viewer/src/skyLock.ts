@@ -149,19 +149,31 @@ export class SkyLockController {
     const galactic = equatorialToGalactic(equatorial);
     const direction = galacticToWorldDirection(galactic.lDeg, galactic.bDeg);
 
-    // The "up" reference for lookAt()'s roll disambiguation must be the
-    // OBSERVER'S REAL zenith (mapped through the same astro pipeline), not
-    // camera.up (Three.js's arbitrary fixed world Y-axis, unrelated to
-    // where "straight up" actually is for this lat/time). Using camera.up
-    // disambiguated roll against the wrong reference, so the rendered sky
-    // appeared increasingly tilted as altitude changed even after azimuth
-    // was fixed.
-    const zenithEquatorial = altAzToEquatorial({ altDeg: 90, azDeg: 0 }, this.position.latitudeDeg, lstDeg);
-    const zenithGalactic = equatorialToGalactic(zenithEquatorial);
-    const worldZenith = galacticToWorldDirection(zenithGalactic.lDeg, zenithGalactic.bDeg);
+    // The "up" reference for lookAt()'s roll disambiguation must be tied to
+    // the REAL sky, not camera.up (Three.js's arbitrary fixed world Y-axis,
+    // unrelated to where "straight up" actually is for this lat/time).
+    // A single FIXED reference (e.g. the true zenith direction) is
+    // correct but reintroduces Object3D.lookAt()'s cross-product
+    // singularity as `direction` sweeps close to it - i.e. tilting the
+    // phone upward drives straight at that fixed point and the camera
+    // visibly jumps once `up` and `direction` get nearly parallel (see
+    // three/src/math/Matrix4.js's `lookAt()`, which nudges by 0.0001 in
+    // that case - a discontinuity at the threshold). Using a hint that
+    // tracks the CURRENT sample (same azimuth, slightly higher altitude)
+    // instead keeps `up` smoothly close to `direction` at all times, so it
+    // only ever becomes exactly parallel at the true zenith itself instead
+    // of some broader "nearby" region swept through during normal tilting.
+    const upHintAltDeg = Math.min(this.latestSample.altDeg + 1, 90);
+    const upHintEquatorial = altAzToEquatorial(
+      { altDeg: upHintAltDeg, azDeg: this.latestSample.azDeg },
+      this.position.latitudeDeg,
+      lstDeg,
+    );
+    const upHintGalactic = equatorialToGalactic(upHintEquatorial);
+    const upHint = galacticToWorldDirection(upHintGalactic.lDeg, upHintGalactic.bDeg);
 
     this.targetObject.position.copy(this.camera.position);
-    this.targetObject.up.copy(worldZenith);
+    this.targetObject.up.copy(upHint);
     this.targetObject.lookAt(direction);
     this.currentQuaternion.slerp(this.targetObject.quaternion, SMOOTHING_FACTOR);
     // Force-overwrite: must run after controls.update() (see field comment
