@@ -8,6 +8,7 @@ import {
   DeviceOrientationTracker,
   isDeviceOrientationSupported,
   requestDeviceOrientationPermission,
+  type DeviceOrientationDebugInfo,
   type DeviceOrientationSample,
 } from "./sensors/deviceOrientation";
 import { isGeolocationSupported, requestGeoPosition, type GeoPosition } from "./sensors/geolocation";
@@ -37,6 +38,8 @@ export class SkyLockController {
   private compassRing: THREE.Group | null = null;
   /** Fired whenever `enabled` actually changes, including the internal no-sample auto-revert - lets UI stay in sync without polling. */
   onStateChange: ((enabled: boolean) => void) | null = null;
+  /** Fired on every raw sensor event, including rejected ones - for an on-screen debug readout on devices without a remote debugger attached. */
+  onDebugUpdate: ((info: DeviceOrientationDebugInfo) => void) | null = null;
 
   constructor(camera: THREE.Camera, controls: OrbitControls, scene: THREE.Scene) {
     this.camera = camera;
@@ -73,13 +76,16 @@ export class SkyLockController {
     this.compassRing = createCompassRing({ latDeg: position.latitudeDeg, lstDeg });
     this.scene.add(this.compassRing);
 
-    this.tracker.start((sample) => {
-      this.latestSample = sample;
-      if (this.noSampleTimer !== null) {
-        window.clearTimeout(this.noSampleTimer);
-        this.noSampleTimer = null;
-      }
-    });
+    this.tracker.start(
+      (sample) => {
+        this.latestSample = sample;
+        if (this.noSampleTimer !== null) {
+          window.clearTimeout(this.noSampleTimer);
+          this.noSampleTimer = null;
+        }
+      },
+      (info) => this.onDebugUpdate?.(info),
+    );
 
     // Some desktop browsers expose the DeviceOrientationEvent API but never
     // fire it (no real sensor) - bail back to free-look if nothing arrives.

@@ -110,7 +110,28 @@ body {
   font-size: 12px;
 }
 
+#sensor-debug-panel {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 15;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #9f9;
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+#sensor-debug-panel .row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  white-space: nowrap;
+}
+
 .ui-hidden #debug-panel,
-.ui-hidden #sky-lock-button {
+.ui-hidden #sky-lock-button,
+.ui-hidden #sensor-debug-panel {
   display: none;
 }

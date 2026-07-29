@@ -12,6 +12,7 @@ import { createSkySphere } from "./scene/createSkySphere";
 import { isSkyLockSupported, SkyLockController } from "./skyLock";
 import type { LayerState } from "./types";
 import { createDebugPanel } from "./ui/debugPanel";
+import { createSensorDebugPanel } from "./ui/sensorDebugPanel";
 import { createSkyLockButton } from "./ui/skyLockButton";
 import { createUiVisibilityToggle } from "./ui/uiVisibilityToggle";
 
@@ -89,12 +90,19 @@ if (isSkyLockSupported()) {
       }
     })();
   });
-  // Keeps the button label in sync even when skyLock disables itself
-  // internally (e.g. the no-sample timeout), not just on explicit clicks.
+  app.appendChild(skyLockButton);
+
+  const sensorDebugPanel = createSensorDebugPanel();
+  app.appendChild(sensorDebugPanel.element);
+  skyLock.onDebugUpdate = (info) => sensorDebugPanel.update(info);
+
+  // Keeps the button label + sensor readout in sync even when skyLock
+  // disables itself internally (e.g. the no-sample timeout), not just on
+  // explicit clicks.
   skyLock.onStateChange = (enabled) => {
     skyLockButton.textContent = enabled ? "自由視点に戻る" : "実際の空と同期";
+    sensorDebugPanel.setEnabled(enabled);
   };
-  app.appendChild(skyLockButton);
 }
 
 app.appendChild(createUiVisibilityToggle(app));

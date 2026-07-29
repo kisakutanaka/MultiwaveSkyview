@@ -89,27 +89,58 @@ function computeAltAz(alphaDeg: number, betaDeg: number, gammaDeg: number, scree
 
 type Listener = (sample: DeviceOrientationSample) => void;
 
+/** Raw per-event diagnostics, reported even when the event is rejected (no usable sample) - lets on-screen debug UI show *why* sky-lock isn't tracking on a real device without needing a remote debugger attached. */
+export interface DeviceOrientationDebugInfo {
+  eventType: string;
+  alphaRaw: number | null;
+  betaRaw: number | null;
+  gammaRaw: number | null;
+  absolute: boolean;
+  webkitCompassHeading: number | null;
+  resolvedAlphaDeg: number | null;
+  sample: DeviceOrientationSample | null;
+}
+
+type DebugListener = (info: DeviceOrientationDebugInfo) => void;
+
 export class DeviceOrientationTracker {
   private listener: Listener | null = null;
+  private debugListener: DebugListener | null = null;
   private readonly handleEvent = (event: Event): void => {
-    if (!this.listener) return;
     const orientationEvent = event as DeviceOrientationEvent;
-    if (orientationEvent.beta === null || orientationEvent.gamma === null) return;
-
+    const iosHeading = (orientationEvent as CompassCapableEvent).webkitCompassHeading;
     const alphaDeg = resolveAlphaDeg(orientationEvent);
-    if (alphaDeg === null) return;
+    const sample =
+      alphaDeg !== null && orientationEvent.beta !== null && orientationEvent.gamma !== null
+        ? computeAltAz(alphaDeg, orientationEvent.beta, orientationEvent.gamma, screenOrientationAngleDeg())
+        : null;
 
-    this.listener(computeAltAz(alphaDeg, orientationEvent.beta, orientationEvent.gamma, screenOrientationAngleDeg()));
+    this.debugListener?.({
+      eventType: event.type,
+      alphaRaw: orientationEvent.alpha,
+      betaRaw: orientationEvent.beta,
+      gammaRaw: orientationEvent.gamma,
+      absolute: orientationEvent.absolute,
+      webkitCompassHeading: typeof iosHeading === "number" ? iosHeading : null,
+      resolvedAlphaDeg: alphaDeg,
+      sample,
+    });
+
+    if (sample) {
+      this.listener?.(sample);
+    }
   };
 
-  start(listener: Listener): void {
+  start(listener: Listener, debugListener?: DebugListener): void {
     this.listener = listener;
+    this.debugListener = debugListener ?? null;
     window.addEventListener("deviceorientationabsolute", this.handleEvent, true);
     window.addEventListener("deviceorientation", this.handleEvent, true);
   }
 
   stop(): void {
     this.listener = null;
+    this.debugListener = null;
     window.removeEventListener("deviceorientationabsolute", this.handleEvent, true);
     window.removeEventListener("deviceorientation", this.handleEvent, true);
   }
