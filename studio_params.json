@@ -12,22 +12,50 @@
   "01_infrared_akari_90um": {
     "colormap": "hot",
     "custom_colors": null,
-    "gamma": 1.55,
+    "gamma": 1.5,
     "max_percentile": 99.7,
     "min_percentile": 1.0,
     "output_width": 2048,
     "strength": 10.0,
     "stretch": "asinh"
   },
-  "05_gamma_fermi_300_1000mev": {
-    "colormap": "inferno",
-    "custom_colors": null,
+  "03_ultraviolet_galex_nuv": {
+    "colormap": "custom",
+    "custom_colors": [
+      "#000000",
+      "#743bf6",
+      "#ffffff"
+    ],
     "gamma": 1.0,
+    "max_percentile": 99.8,
+    "min_percentile": 1.0,
+    "output_width": 2048,
+    "strength": 10.5,
+    "stretch": "asinh"
+  },
+  "04_xray_rosat_rass": {
+    "colormap": "custom",
+    "custom_colors": [
+      "#000000",
+      "#3b82f6",
+      "#99ccff"
+    ],
+    "gamma": 0.2,
     "max_percentile": 99.7,
     "min_percentile": 1.0,
     "output_width": 2048,
     "strength": null,
     "stretch": "sqrt"
+  },
+  "05_gamma_fermi_300_1000mev": {
+    "colormap": "cividis",
+    "custom_colors": null,
+    "gamma": 1.0,
+    "max_percentile": 99.7,
+    "min_percentile": 1.0,
+    "output_width": 2048,
+    "strength": 10.0,
+    "stretch": "asinh"
   },
   "__composite__": {
     "02c_visible_dss2_red+00_radio_haslam_408mhz": {
