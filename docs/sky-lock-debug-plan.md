@@ -178,11 +178,42 @@ North Polar Spurが見えるはず)を`__skyLockDebug.lookAtGalactic(0, 80)`で
 - 一致しない(例: リングの「N」を向いているのに方位チェックは東や南を示す) →
   ステップ4b(またはステップ3)にまだ別のバグが残っている。
 
-### ステップ5: カメラへの反映
+### ステップ5(バグ発見・修正済み): カメラへの反映
 
-上記のリング単体テストで(a)が否定されたら、`skyLock.ts`の`update()`
-(`targetObject.lookAt()` → `currentQuaternion.slerp()` → `camera.quaternion.copy()`)
-と`main.ts`の`animate()`内の呼び出し順序を再検証する。
+リング単体表示モードで検証したところ、「コンパスリングのNは画像上の北極星
+方向を正しく向いている(=ステップ4bは正しい)。しかしスマホが南を向いたとき、
+カメラには北の空が表示される」との報告。ステップ4bが正しいと確定した以上、
+バグはステップ5(`skyLock.ts`の`update()`: `targetObject.lookAt()` →
+`currentQuaternion.slerp()` → `camera.quaternion.copy()`)に確定した。
+
+**原因**: Three.jsの`Object3D.prototype.lookAt()`のソース
+(`three/src/core/Object3D.js`)を確認すると、対象が`isCamera`かどうかで
+内部の計算式が入れ替わる仕様になっている:
+
+```js
+if ( this.isCamera || this.isLight ) {
+  _m1.lookAt( _position, _target, this.up );   // カメラ/ライト用
+} else {
+  _m1.lookAt( _target, _position, this.up );   // 通常オブジェクト用(eye/target逆)
+}
+```
+
+`skyLock.ts`の平滑化用`targetObject`は`new THREE.Object3D()`(通常オブジェクト)
+だったため、`targetObject.lookAt(direction)`は`else`分岐に入り、意図した
+「カメラの位置から`direction`を見る」向きの**正確に180°反対**の向きを
+計算していた。
+
+**検証**: ブラウザ上で同一の`direction`・`position`に対し
+`new THREE.Camera()`と`new THREE.Object3D()`それぞれで`.lookAt()`した結果を
+比較したところ、両者は`quaternion.angleTo()`でちょうど180°、前方ベクトルは
+完全に符号反転していることを確認した(`new THREE.Camera()`版は実際の
+`PerspectiveCamera.lookAt()`と完全一致)。
+
+**修正**: `targetObject`を`THREE.Object3D`から`THREE.Camera`
+(`isCamera=true`を持つ最小クラス)に変更(`skyLock.ts`)。
+
+これで一連のバグ(コンパス-1値、OrbitControls干渉、南北反転、東西南北180°反転)
+がすべて特定・修正された。
 
 ## 次にやること
 
@@ -191,7 +222,7 @@ North Polar Spurが見えるはず)を`__skyLockDebug.lookAtGalactic(0, 80)`で
 3. ~~ステップ3・4(座標変換)をastropyで検証~~ → 確認済み、正しい(誤差は既知の
    歳差未補正による許容範囲内)。
 4. ~~ステップ4b(銀河座標→ワールド方向)を精査~~ → 南北反転バグを発見・修正済み。
-5. E/W・N/S入れ替わりの報告を受け、リング単体表示モード(自由視点)を追加。
-   実機で「コンパスリング表示(自由視点)」ボタンを押し、ドラッグでNラベルに
-   向けたときに`#heading-check-panel`が北を示すか確認してもらう(ステップ4b vs
-   ステップ5の切り分け)。
+5. ~~リング単体表示モードで座標変換とカメラ反映を切り分け~~ → ステップ4bは
+   正しいと確定、ステップ5(`Object3D.lookAt()`の180°反転)のバグを発見・修正済み。
+6. 実機で「実際の空と同期」を有効にして、最終的にカメラが実際の空と一致して
+   追従するか確認してもらう。

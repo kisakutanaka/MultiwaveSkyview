@@ -34,7 +34,14 @@ export class SkyLockController {
   private latestSample: DeviceOrientationSample | null = null;
   private noSampleTimer: number | null = null;
   private enabled = false;
-  private readonly targetObject = new THREE.Object3D();
+  // Deliberately THREE.Camera, not Object3D: Object3D.prototype.lookAt()
+  // special-cases `this.isCamera` and swaps the eye/target argument order
+  // for non-camera objects (see three/src/core/Object3D.js), producing a
+  // quaternion rotated 180deg from what camera.lookAt(direction) would give
+  // for the same inputs. Using a plain Object3D here silently pointed the
+  // camera at the exact opposite of the intended sky direction (confirmed:
+  // facing real south showed the north sky).
+  private readonly targetObject = new THREE.Camera();
   private compassRing: THREE.Group | null = null;
   // Smoothing state kept independent of camera.quaternion: OrbitControls.update()
   // (called before skyLock.update() every frame in main.ts's animate loop)
