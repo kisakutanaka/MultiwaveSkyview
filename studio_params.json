@@ -63,6 +63,24 @@
         "strength": 10.0,
         "stretch": "asinh"
       }
+    },
+    "02c_visible_dss2_red+02d_visible_dss2_blue": {
+      "blue": {
+        "gamma": 0.3,
+        "max_percentile": 99.8,
+        "min_percentile": 5.0,
+        "strength": 5.0,
+        "stretch": "asinh"
+      },
+      "green_mode": "average",
+      "output_width": 2048,
+      "red": {
+        "gamma": 0.3,
+        "max_percentile": 99.8,
+        "min_percentile": 5.0,
+        "strength": 5.0,
+        "stretch": "asinh"
+      }
     }
   }
 }

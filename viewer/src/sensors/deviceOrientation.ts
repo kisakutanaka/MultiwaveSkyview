@@ -31,26 +31,41 @@ interface CompassCapableEvent extends DeviceOrientationEvent {
   webkitCompassHeading?: number;
 }
 
-/**
- * Resolves a true "alpha" (rotation around Z, referenced to North, per the
- * DeviceOrientationEvent spec convention) from whichever compass reference
- * the platform actually exposes:
- * - iOS Safari: `webkitCompassHeading` (0=N, clockwise) -> alpha = 360 - heading.
- * - Chrome/Android: `deviceorientationabsolute` with absolute===true, whose
- *   `alpha` is already spec-referenced.
- * Returns null when no absolute compass reference is available yet (plain
- * relative `deviceorientation` on desktop, or before the compass settles).
- */
-function resolveAlphaDeg(event: DeviceOrientationEvent): number | null {
+function hasValidIosHeading(event: DeviceOrientationEvent): boolean {
   const iosHeading = (event as CompassCapableEvent).webkitCompassHeading;
   // iOS reports webkitCompassHeading === -1 when the compass is
-  // uncalibrated/invalid (not a real 0-360 heading). Treating it as valid
-  // caused alpha to snap to ~361deg (=~1deg, i.e. ~north) every time the
-  // compass briefly glitched, producing large sudden jumps.
-  if (typeof iosHeading === "number" && !Number.isNaN(iosHeading) && iosHeading >= 0) {
-    return 360 - iosHeading;
+  // uncalibrated/invalid (not a real 0-360 heading).
+  return typeof iosHeading === "number" && !Number.isNaN(iosHeading) && iosHeading >= 0;
+}
+
+/**
+ * Resolves the RAW alpha (Z/yaw Euler component) directly from
+ * `event.alpha`, so it stays mutually self-consistent with this same
+ * event's beta/gamma - all three are decomposed from one instant's fused
+ * device attitude, so their relationship (needed by computeAltAz's YXZ
+ * Euler->quaternion composition) can't go out of sync.
+ *
+ * This alpha is NOT north-referenced on iOS (Safari's `deviceorientation`
+ * always reports `absolute: false` and has an arbitrary zero point) - true
+ * north alignment is handled separately as a calibrated offset, see
+ * DeviceOrientationTracker's northOffsetDeg. Previously this function
+ * substituted `360 - event.webkitCompassHeading` in place of alpha
+ * directly; that broke the (alpha,beta,gamma) self-consistency whenever
+ * WebKit's own internal beta/gamma (used to compute webkitCompassHeading)
+ * didn't match this event's literal alpha 1:1, which produced a real,
+ * persistent azDeg error (confirmed: an exact 180deg flip crossing
+ * altDeg=45, not noise) - see docs/sky-lock-debug-plan.md.
+ *
+ * Returns null when no north reference is available at all yet (desktop's
+ * plain relative `deviceorientation`, or before the iOS compass settles) -
+ * same rejection condition as before, just without folding the heading
+ * value into alpha.
+ */
+function resolveAlphaDeg(event: DeviceOrientationEvent): number | null {
+  if (typeof event.alpha !== "number" || Number.isNaN(event.alpha)) {
+    return null;
   }
-  if (event.absolute && typeof event.alpha === "number") {
+  if (event.absolute || hasValidIosHeading(event)) {
     return event.alpha;
   }
   return null;
@@ -104,15 +119,51 @@ export interface DeviceOrientationDebugInfo {
   webkitCompassHeading: number | null;
   resolvedAlphaDeg: number | null;
   screenAngleDeg: number;
+  northOffsetDeg: number | null;
   rawSample: DeviceOrientationSample | null;
   sample: DeviceOrientationSample | null;
 }
 
 type DebugListener = (info: DeviceOrientationDebugInfo) => void;
 
+// How many early webkitCompassHeading samples to average (circular mean)
+// into the one-time north-offset calibration. Confirmed on-device:
+// webkitCompassHeading itself (not our math) can jump ~150-180deg at
+// certain device attitudes (e.g. altDeg crossing 45) while the exposed
+// alpha/beta/gamma stay smooth - so it can't be trusted continuously
+// per-event. Averaging a handful of samples taken right at start() (when
+// the phone is presumably held in a normal, non-glitchy pose) gives a
+// single stable offset without ever re-touching it mid-session, the same
+// "capture once, freeze for the session" approach that fixed the
+// screenAngleDeg issue.
+const NORTH_OFFSET_CALIBRATION_SAMPLES = 5;
+
+function circularMeanDeg(samplesDeg: number[]): number {
+  let sumX = 0;
+  let sumY = 0;
+  for (const deg of samplesDeg) {
+    const rad = THREE.MathUtils.degToRad(deg);
+    sumX += Math.cos(rad);
+    sumY += Math.sin(rad);
+  }
+  return normalizeDeg(THREE.MathUtils.radToDeg(Math.atan2(sumY, sumX)));
+}
+
 export class DeviceOrientationTracker {
   private listener: Listener | null = null;
   private debugListener: DebugListener | null = null;
+  // iOS-only true-north calibration for the raw (arbitrary-zero) alpha - see
+  // resolveAlphaDeg's doc comment. Rotating alpha by any delta rotates the
+  // whole composed quaternion (and therefore azDeg) by that exact same
+  // delta regardless of beta/gamma, because alpha is the outermost/world-Y
+  // term in the "YXZ" Euler composition - so a single offset sampled at any
+  // well-conditioned instant stays valid at any later beta/gamma. Collected
+  // from the first few events in start() and then frozen - see
+  // NORTH_OFFSET_CALIBRATION_SAMPLES above for why this isn't updated
+  // continuously. Reset on every start() so a stale offset from a previous
+  // session doesn't carry over.
+  private northOffsetDeg: number | null = null;
+  private northOffsetCalibrationSamples: number[] = [];
   // Rate-limits the resolved azimuth (see outlierFilter.ts) - altitude is
   // driven fairly directly by beta and stays smooth even through the
   // gimbal-lock zone near beta=90deg (altDeg near 0), but azimuth depends
@@ -140,12 +191,29 @@ export class DeviceOrientationTracker {
       alphaDeg !== null && orientationEvent.beta !== null && orientationEvent.gamma !== null
         ? computeAltAz(alphaDeg, orientationEvent.beta, orientationEvent.gamma, this.screenAngleDeg)
         : null;
-    const sample = rawSample
-      ? {
-          altDeg: rawSample.altDeg,
-          azDeg: normalizeDeg(filterOutlier(this.headingFilterState, rawSample.azDeg, circularDeltaDeg)),
+
+    if (this.northOffsetDeg === null) {
+      if (orientationEvent.absolute) {
+        // deviceorientationabsolute's alpha is already north-referenced by
+        // spec - no calibration needed.
+        this.northOffsetDeg = 0;
+      } else if (rawSample !== null && orientationEvent.beta !== null && orientationEvent.gamma !== null && hasValidIosHeading(orientationEvent)) {
+        const targetAzDeg = computeAltAz(360 - (iosHeading as number), orientationEvent.beta, orientationEvent.gamma, this.screenAngleDeg).azDeg;
+        this.northOffsetCalibrationSamples.push(circularDeltaDeg(targetAzDeg, rawSample.azDeg));
+        if (this.northOffsetCalibrationSamples.length >= NORTH_OFFSET_CALIBRATION_SAMPLES) {
+          this.northOffsetDeg = circularMeanDeg(this.northOffsetCalibrationSamples);
         }
-      : null;
+      }
+    }
+
+    const calibratedAzDeg = rawSample !== null && this.northOffsetDeg !== null ? normalizeDeg(rawSample.azDeg + this.northOffsetDeg) : null;
+    const sample =
+      rawSample !== null && calibratedAzDeg !== null
+        ? {
+            altDeg: rawSample.altDeg,
+            azDeg: normalizeDeg(filterOutlier(this.headingFilterState, calibratedAzDeg, circularDeltaDeg)),
+          }
+        : null;
 
     this.debugListener?.({
       eventType: event.type,
@@ -156,6 +224,7 @@ export class DeviceOrientationTracker {
       webkitCompassHeading: typeof iosHeading === "number" ? iosHeading : null,
       resolvedAlphaDeg: alphaDeg,
       screenAngleDeg: this.screenAngleDeg,
+      northOffsetDeg: this.northOffsetDeg,
       rawSample,
       sample,
     });
@@ -170,6 +239,8 @@ export class DeviceOrientationTracker {
     this.debugListener = debugListener ?? null;
     this.headingFilterState = createOutlierFilterState();
     this.screenAngleDeg = screenOrientationAngleDeg();
+    this.northOffsetDeg = null;
+    this.northOffsetCalibrationSamples = [];
     window.addEventListener("deviceorientationabsolute", this.handleEvent, true);
     window.addEventListener("deviceorientation", this.handleEvent, true);
   }

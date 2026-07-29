@@ -42,15 +42,16 @@ export function createSensorDebugPanel(): SensorDebugPanel {
   const compass = row("webkitCompassHeading:");
   const resolved = row("resolvedAlpha:");
   const screenAngle = row("screenAngleDeg:");
+  const northOffset = row("northOffsetDeg:");
   const rawSample = row("rawSample(alt/az):");
   const sample = row("sample(alt/az):");
 
-  for (const r of [status, eventType, alphaRaw, betaRaw, gammaRaw, absolute, compass, resolved, screenAngle, rawSample, sample]) {
+  for (const r of [status, eventType, alphaRaw, betaRaw, gammaRaw, absolute, compass, resolved, screenAngle, northOffset, rawSample, sample]) {
     element.appendChild(r.row);
   }
 
   function clearFields(): void {
-    for (const v of [eventType, alphaRaw, betaRaw, gammaRaw, absolute, compass, resolved, screenAngle, rawSample, sample]) {
+    for (const v of [eventType, alphaRaw, betaRaw, gammaRaw, absolute, compass, resolved, screenAngle, northOffset, rawSample, sample]) {
       v.value.textContent = "-";
     }
   }
@@ -72,6 +73,7 @@ export function createSensorDebugPanel(): SensorDebugPanel {
       compass.value.textContent = fmt(info.webkitCompassHeading);
       resolved.value.textContent = info.resolvedAlphaDeg === null ? "null (REJECTED)" : fmt(info.resolvedAlphaDeg);
       screenAngle.value.textContent = info.screenAngleDeg.toFixed(0);
+      northOffset.value.textContent = info.northOffsetDeg === null ? "calibrating..." : info.northOffsetDeg.toFixed(1);
       rawSample.value.textContent = info.rawSample ? `${info.rawSample.altDeg.toFixed(1)} / ${info.rawSample.azDeg.toFixed(1)}` : "none";
       sample.value.textContent = info.sample ? `${info.sample.altDeg.toFixed(1)} / ${info.sample.azDeg.toFixed(1)}` : "none";
     },

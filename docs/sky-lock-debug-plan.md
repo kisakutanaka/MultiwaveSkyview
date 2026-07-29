@@ -505,3 +505,62 @@ alpha/beta/gammaが同じならazDegの収束先がほぼ変わらないこと�
 次にやること: 実機のデバッグパネルを表示した状態で仰角45°をまたぐ操作を
 再現し、`screenAngleDeg`と`rawSample`の値がジャンプの瞬間にどう動くかを
 報告してもらう。
+
+## 追加報告: 真犯人は`webkitCompassHeading`自体だった(実バグ、修正済み)
+
+ユーザーから「仰角45で変化するのは`webkitCompassHeading` / `resolveAlpha` /
+`sample(alt/az)`のazで、それぞれ180くらい回転する(向きによっては150度程度)」
+との報告。一方`alpha(raw)`/`beta`/`gamma`は引き続き滑らかとのこと。つまり
+`screenAngleDeg`固定の修正は無関係で、`webkitCompassHeading`という**iOSが
+返す生の値そのもの**がこの姿勢でジャンプしていたと判明した。
+
+これはChatGPTから寄せられた指摘と一致する: `resolveAlphaDeg()`は
+`webkitCompassHeading`が有効な場合、常に`alpha = 360 - webkitCompassHeading`
+に**置き換えて**いた。しかし`webkitCompassHeading`はWebKit内部で
+beta/gammaを使って独自に計算される値であり、公開される`event.alpha`とは
+別経路・別インスタンスで算出されている可能性がある。そのため
+`webkitCompassHeading`側だけが特定の姿勢(この端末の持ち方で仰角45°に
+相当する姿勢)でブランチが切り替わり、`event.alpha`/`beta`/`gamma`(公開
+される、自己無矛盾なオイラー角3つ組)が滑らかなままでも
+`webkitCompassHeading`だけ180°近く不連続に動く、という現象が実際に
+確認された。
+
+**修正**(`sensors/deviceOrientation.ts`):
+- `resolveAlphaDeg()`は`webkitCompassHeading`を**もう埋め込まない**。常に
+  生の`event.alpha`を返す(自己無矛盾なので`computeAltAz()`内のオイラー角
+  →クォータニオン変換が安全)。
+- 真北とのズレ(alphaのゼロ点は端末起動時点で任意)は、`start()`直後の
+  最初の数イベント(`NORTH_OFFSET_CALIBRATION_SAMPLES = 5`)だけ
+  `webkitCompassHeading`を使って`northOffsetDeg`という単一のオフセットを
+  円環平均で算出し、以降はセッション中固定する(`screenAngleDeg`と同じ
+  「一度だけ取得して固定」方針)。alphaは「YXZ」オイラー合成で最も外側
+  (ワールドY軸=上方向)の回転項なので、alphaをどれだけずらしてもazDegへの
+  影響量はbeta/gammaに関係なく常に同じ(±1倍)というのがこの設計の理論的
+  裏付け:キャリブレーション時の1点のズレが、後のどんな姿勢でも変わらず
+  正しく効く。
+- Android(`deviceorientationabsolute`、`absolute===true`)は元々
+  spec準拠でalphaが真北基準のため、`northOffsetDeg=0`即時確定(較正不要)。
+
+デバッグパネルに`northOffsetDeg`欄を追加(較正中は`calibrating...`表示)。
+`deviceOrientation.test.ts`に回帰テストを追加: 較正完了後に
+`webkitCompassHeading`だけが約170°ジャンプしてもalpha/beta/gammaが同じなら
+最終的なazDegはほぼ変化しないことを検証(全52テスト green)。
+
+次にやること: 実機で再度仰角45°をまたぐ操作を確認してもらう。デバッグ
+パネルの`northOffsetDeg`が最初の数フレームで一度だけ確定し、その後
+`webkitCompassHeading`が仮にジャンプしても`sample(alt/az)`のazは滑らかな
+ままであることを見てほしい。
+
+## 追加確認: iPhone純正「コンパス」アプリ自体も仰角45°付近で北がひっくり返る
+
+ユーザーより「iPhoneのコンパスアプリも仰角45度あたりで北がひっくり返る」
+との報告。これは`webkitCompassHeading`固有のバグではなく、**iOSのコンパス
+機能(磁気センサー+tilt補正アルゴリズム)自体が、急な仰角でヘディング計算
+が不安定/反転するというOS・センサーレベルの既知の限界**であることを意味
+する(純正アプリでも起きるならWeb API側の実装ミスではあり得ない)。
+
+これにより、上記の修正方針(`webkitCompassHeading`は起動直後の数フレーム
+だけ較正に使い、以降は無視して自己無矛盾な`alpha`/`beta`/`gamma`だけで
+azDegを計算し続ける)は、この既知の限界を正しく回避する設計だったと
+裏付けられた。較正のタイミングさえ問題の姿勢帯に重ならなければ、以降は
+コンパス自体の反転の影響を受けない見込み。実機での最終確認待ち。

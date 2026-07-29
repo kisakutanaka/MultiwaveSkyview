@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { DeviceOrientationTracker, type DeviceOrientationSample } from "./deviceOrientation";
+import { circularDeltaDeg } from "./outlierFilter";
 
 function dispatchDeviceOrientation(alpha: number, beta: number, gamma: number): void {
   const event = new Event("deviceorientation") as DeviceOrientationEvent;
@@ -9,6 +10,19 @@ function dispatchDeviceOrientation(alpha: number, beta: number, gamma: number): 
     beta: { value: beta, configurable: true },
     gamma: { value: gamma, configurable: true },
     absolute: { value: true, configurable: true },
+  });
+  window.dispatchEvent(event);
+}
+
+/** Simulates iOS Safari's non-absolute deviceorientation + webkitCompassHeading. */
+function dispatchIosDeviceOrientation(alpha: number, beta: number, gamma: number, webkitCompassHeading: number): void {
+  const event = new Event("deviceorientation") as DeviceOrientationEvent;
+  Object.defineProperties(event, {
+    alpha: { value: alpha, configurable: true },
+    beta: { value: beta, configurable: true },
+    gamma: { value: gamma, configurable: true },
+    absolute: { value: false, configurable: true },
+    webkitCompassHeading: { value: webkitCompassHeading, configurable: true },
   });
   window.dispatchEvent(event);
 }
@@ -54,6 +68,33 @@ describe("DeviceOrientationTracker", () => {
       const flippedSessionAz = samples.at(-1)!.azDeg;
 
       expect(Math.abs(flippedSessionAz - referenceAz)).toBeLessThan(5);
+    },
+  );
+
+  it(
+    "ignores a mid-session webkitCompassHeading glitch once north-offset calibration has settled - regression guard for a confirmed real-device bug where webkitCompassHeading itself (not alpha/beta/gamma, and not our math) jumped ~150-180deg crossing altDeg=45. Root cause: resolveAlphaDeg() used to substitute `360 - webkitCompassHeading` directly as alpha every event, so a WebKit-internal heading glitch fed straight into the Euler composition as a fake attitude change. Fix: alpha is now always the raw, self-consistent event.alpha; webkitCompassHeading is only used to calibrate a one-time northOffsetDeg from the first few events, then frozen for the session (see deviceOrientation.ts).",
+    () => {
+      setScreenOrientationAngle(0);
+      const tracker = new DeviceOrientationTracker();
+      const samples: DeviceOrientationSample[] = [];
+      tracker.start((sample) => samples.push(sample));
+
+      // Calibration phase: consistent heading, lets northOffsetDeg settle.
+      for (let i = 0; i < 6; i++) {
+        dispatchIosDeviceOrientation(200, 80, 5, 160);
+      }
+      const preGlitchAz = samples.at(-1)!.azDeg;
+
+      // Glitch phase: alpha/beta/gamma stay exactly the same (the raw
+      // attitude did not change), but webkitCompassHeading jumps ~170deg,
+      // as confirmed happening on-device.
+      for (let i = 0; i < 10; i++) {
+        dispatchIosDeviceOrientation(200, 80, 5, 330);
+      }
+      tracker.stop();
+      const postGlitchAz = samples.at(-1)!.azDeg;
+
+      expect(Math.abs(circularDeltaDeg(postGlitchAz, preGlitchAz))).toBeLessThan(5);
     },
   );
 });

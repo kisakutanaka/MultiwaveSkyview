@@ -69,6 +69,12 @@ SURVEYS = {
 #        "max_percentile": 99.8,
 #        "stretch": "asinh",
 #    },
+    "02d_visible_dss2_blue": {
+        "hips": "CDS/P/DSS2/blue",
+        "min_percentile": 5.0,
+        "max_percentile": 99.8,
+        "stretch": "asinh",
+    },
     "03_ultraviolet_galex_nuv": {
         "hips": "CDS/P/GALEXGR6_7/NUV",
         "min_percentile": 1.0,
