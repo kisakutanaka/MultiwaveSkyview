@@ -1,11 +1,5 @@
 import * as THREE from "three";
-import {
-  circularDeltaDeg,
-  createOutlierFilterState,
-  filterOutlier,
-  linearDeltaDeg,
-  type OutlierFilterState,
-} from "./outlierFilter";
+import { circularDeltaDeg, createOutlierFilterState, filterOutlier, type OutlierFilterState } from "./outlierFilter";
 
 export interface DeviceOrientationSample {
   altDeg: number;
@@ -62,6 +56,10 @@ function resolveAlphaDeg(event: DeviceOrientationEvent): number | null {
   return null;
 }
 
+function normalizeDeg(deg: number): number {
+  return ((deg % 360) + 360) % 360;
+}
+
 function screenOrientationAngleDeg(): number {
   return window.screen.orientation?.angle ?? 0;
 }
@@ -113,14 +111,13 @@ type DebugListener = (info: DeviceOrientationDebugInfo) => void;
 export class DeviceOrientationTracker {
   private listener: Listener | null = null;
   private debugListener: DebugListener | null = null;
-  // Rejects transient outliers in the resolved az/alt (see outlierFilter.ts)
-  // - magnetometer glitches near metal/electronics (azimuth), and the
-  // gimbal-lock-driven alpha/gamma noise that happens near the horizon
-  // (altDeg near 0, i.e. the phone held near-vertical) regardless of which
-  // way it's pointed. Reset on every start() so a stale reading from a
-  // previous session doesn't get compared against.
+  // Rate-limits the resolved azimuth (see outlierFilter.ts) - altitude is
+  // driven fairly directly by beta and stays smooth even through the
+  // gimbal-lock zone near beta=90deg (altDeg near 0), but azimuth depends
+  // on the alpha/gamma split, which is what actually goes unstable there.
+  // Reset on every start() so a stale heading from a previous session
+  // doesn't get compared against.
   private headingFilterState: OutlierFilterState = createOutlierFilterState();
-  private altitudeFilterState: OutlierFilterState = createOutlierFilterState();
   private readonly handleEvent = (event: Event): void => {
     const orientationEvent = event as DeviceOrientationEvent;
     const iosHeading = (orientationEvent as CompassCapableEvent).webkitCompassHeading;
@@ -131,8 +128,8 @@ export class DeviceOrientationTracker {
         : null;
     const sample = rawSample
       ? {
-          altDeg: filterOutlier(this.altitudeFilterState, rawSample.altDeg, linearDeltaDeg),
-          azDeg: filterOutlier(this.headingFilterState, rawSample.azDeg, circularDeltaDeg),
+          altDeg: rawSample.altDeg,
+          azDeg: normalizeDeg(filterOutlier(this.headingFilterState, rawSample.azDeg, circularDeltaDeg)),
         }
       : null;
 
@@ -156,7 +153,6 @@ export class DeviceOrientationTracker {
     this.listener = listener;
     this.debugListener = debugListener ?? null;
     this.headingFilterState = createOutlierFilterState();
-    this.altitudeFilterState = createOutlierFilterState();
     window.addEventListener("deviceorientationabsolute", this.handleEvent, true);
     window.addEventListener("deviceorientation", this.handleEvent, true);
   }
