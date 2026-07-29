@@ -27,15 +27,16 @@ jobs:
           cache-dependency-path: viewer/package-lock.json
 
       # public/data is a symlink to ../allsky_textures for local dev
-      # convenience. Replace it here with a real copy of just png/ (not
-      # fits/, which isn't even in the repo) so the build is self-contained
-      # and doesn't depend on how the build tool handles symlinked publicDir
-      # entries.
+      # convenience. Replace it here with a real copy of just png/ and
+      # png_colored/ (not fits/, which isn't even in the repo) so the build
+      # is self-contained and doesn't depend on how the build tool handles
+      # symlinked publicDir entries.
       - name: Stage survey PNGs into public/data
         run: |
           rm -f viewer/public/data
           mkdir -p viewer/public/data
           cp -r allsky_textures/png viewer/public/data/png
+          cp -r allsky_textures/png_colored viewer/public/data/png_colored
 
       - name: Install dependencies
         working-directory: viewer
