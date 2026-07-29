@@ -1,13 +1,33 @@
 {
   "00_radio_haslam_408mhz": {
-    "colormap": "gray",
+    "colormap": "magma",
     "custom_colors": null,
-    "gamma": 1.0,
+    "gamma": 0.8,
     "max_percentile": 99.7,
     "min_percentile": 1.0,
     "output_width": 2048,
     "strength": 10.0,
     "stretch": "asinh"
+  },
+  "01_infrared_akari_90um": {
+    "colormap": "hot",
+    "custom_colors": null,
+    "gamma": 1.55,
+    "max_percentile": 99.7,
+    "min_percentile": 1.0,
+    "output_width": 2048,
+    "strength": 10.0,
+    "stretch": "asinh"
+  },
+  "05_gamma_fermi_300_1000mev": {
+    "colormap": "inferno",
+    "custom_colors": null,
+    "gamma": 1.0,
+    "max_percentile": 99.7,
+    "min_percentile": 1.0,
+    "output_width": 2048,
+    "strength": null,
+    "stretch": "sqrt"
   },
   "__composite__": {
     "02c_visible_dss2_red+00_radio_haslam_408mhz": {
@@ -66,7 +86,7 @@
     },
     "02c_visible_dss2_red+02d_visible_dss2_blue": {
       "blue": {
-        "gamma": 0.3,
+        "gamma": 0.2,
         "max_percentile": 99.8,
         "min_percentile": 5.0,
         "strength": 5.0,
@@ -75,7 +95,7 @@
       "green_mode": "average",
       "output_width": 2048,
       "red": {
-        "gamma": 0.3,
+        "gamma": 0.2,
         "max_percentile": 99.8,
         "min_percentile": 5.0,
         "strength": 5.0,

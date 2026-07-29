@@ -28,10 +28,10 @@ export const SURVEYS: SurveyConfig[] = [
     rawUrl: dataUrl("png/00_radio_haslam_408mhz.png"),
   },
   {
-    kind: "scalar",
+    kind: "color",
     name: "01_infrared_akari_90um",
     label: "赤外線 (AKARI 90um)",
-    rawUrl: dataUrl("png/01_infrared_akari_90um.png"),
+    rawUrl: dataUrl("png_colored/01_infrared_akari_90um.png"),
   },
   {
     kind: "scalar",
