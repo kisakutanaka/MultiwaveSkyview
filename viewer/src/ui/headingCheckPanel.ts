@@ -98,7 +98,8 @@ export function createHeadingCheckPanel(): HTMLDivElement {
           detail.textContent =
             `webkitCompassHeading(raw): ${fmt(info.webkitCompassHeading)}° / ` +
             `alpha(raw): ${fmt(info.alphaRaw)}° / beta: ${fmt(info.betaRaw)}° / gamma: ${fmt(info.gammaRaw)}° / ` +
-            `absolute: ${info.absolute}`;
+            `absolute: ${info.absolute} / screenAngleDeg: ${info.screenAngleDeg.toFixed(0)}° / ` +
+            `rawAz: ${info.rawSample ? info.rawSample.azDeg.toFixed(1) : "-"}°`;
         },
       );
     })();

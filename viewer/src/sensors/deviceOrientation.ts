@@ -103,6 +103,8 @@ export interface DeviceOrientationDebugInfo {
   absolute: boolean;
   webkitCompassHeading: number | null;
   resolvedAlphaDeg: number | null;
+  screenAngleDeg: number;
+  rawSample: DeviceOrientationSample | null;
   sample: DeviceOrientationSample | null;
 }
 
@@ -153,6 +155,8 @@ export class DeviceOrientationTracker {
       absolute: orientationEvent.absolute,
       webkitCompassHeading: typeof iosHeading === "number" ? iosHeading : null,
       resolvedAlphaDeg: alphaDeg,
+      screenAngleDeg: this.screenAngleDeg,
+      rawSample,
       sample,
     });
 

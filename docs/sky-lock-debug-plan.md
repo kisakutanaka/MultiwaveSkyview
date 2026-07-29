@@ -480,3 +480,28 @@ altDegにもこのフィルタを適用(別々の状態を保持)。
 固定して問題ない。`deviceOrientation.test.ts`に回帰テストを追加
 (screen.orientation.angleがセッション中に0→180へ切り替わっても、
 alpha/beta/gammaが同じならazDegの収束先がほぼ変わらないことを検証)。
+
+## 追加報告: 上記の修正後も仰角45°のジャンプが改善しなかった(要再調査)
+
+実機で再確認してもらったところ「悲報、仰角45でのジャンプ改善せず」との
+報告。つまり`screen.orientation.angle`の毎イベント読み直しは実バグの原因
+ではなかった(もしくは原因の一つに過ぎない)ということになる。この結論は
+実機の生ログを見ずに立てた推測(「alpha/beta/gammaが滑らかならforward
+ベクトルも数学的に連続のはず」という理論からの逆算)だったため、外れていた
+可能性を素直に認める必要がある。
+
+再調査のため、デバッグパネル(`sensorDebugPanel.ts`/`headingCheckPanel.ts`)に
+以下を追加で表示するようにした(`DeviceOrientationDebugInfo`に
+`screenAngleDeg`・`rawSample`(外れ値フィルタ適用前の生の`computeAltAz()`
+出力)を追加):
+
+- `screenAngleDeg`: そのイベント時点で`start()`時に固定された値。実機で
+  仰角45°をまたぐ瞬間にこの値が本当に変化していないか(=画面向き原因説が
+  誤りだった証拠)を直接確認できる。
+- `rawSample(alt/az)`: 外れ値フィルタ適用前の`computeAltAz()`の生出力。
+  ジャンプが`computeAltAz()`自体の数式バグなのか、外れ値フィルタ側の
+  挙動(レートリミッタの状態管理など)で発生しているのかを切り分けられる。
+
+次にやること: 実機のデバッグパネルを表示した状態で仰角45°をまたぐ操作を
+再現し、`screenAngleDeg`と`rawSample`の値がジャンプの瞬間にどう動くかを
+報告してもらう。

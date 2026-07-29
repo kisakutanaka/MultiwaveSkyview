@@ -52,10 +52,10 @@ SURVEYS = {
         "max_percentile": 99.8,
         "stretch": "asinh",
     },
-    "02b_visible_gaia_dr3_color": {
-        "kind": "color",
-        "hips": "CDS/P/DM/flux-color-Rp-G-Bp/I/355/gaiadr3",
-    },
+    # "02b_visible_gaia_dr3_color": {
+    #     "kind": "color",
+    #     "hips": "CDS/P/DM/flux-color-Rp-G-Bp/I/355/gaiadr3",
+    # },
     "02c_visible_dss2_red": {
         "hips": "CDS/P/DSS2/red",
         "min_percentile": 5.0,
