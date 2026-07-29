@@ -6,12 +6,13 @@ import {
 } from "../sensors/deviceOrientation";
 
 /**
- * Isolated azimuth-only sanity check: no geolocation, no astro pipeline, no
- * camera - just "which compass direction does the sensor say the device is
- * facing right now". Exists to answer one narrow question before trusting
- * any of the downstream sky-lock math: is sensors/deviceOrientation.ts's
- * own alpha/heading resolution correct in isolation? Point the phone at a
- * known direction (e.g. compare against a known compass app) and check this
+ * Isolated azimuth/altitude sanity check: no geolocation, no astro pipeline,
+ * no camera - just "which compass direction + elevation does the sensor say
+ * the device is facing right now". Exists to answer one narrow question
+ * before trusting any of the downstream sky-lock math: is
+ * sensors/deviceOrientation.ts's own alpha/heading resolution correct in
+ * isolation? Point the phone at a known direction/elevation (e.g. compare
+ * against a known compass app, or flat/vertical/overhead) and check this
  * readout agrees.
  */
 
@@ -43,12 +44,17 @@ export function createHeadingCheckPanel(): HTMLDivElement {
   bigHeading.className = "heading-big";
   bigHeading.classList.add("hidden");
 
+  const bigAltitude = document.createElement("div");
+  bigAltitude.className = "heading-big heading-big-secondary";
+  bigAltitude.classList.add("hidden");
+
   const detail = document.createElement("div");
   detail.className = "heading-detail";
   detail.classList.add("hidden");
 
   container.appendChild(button);
   container.appendChild(bigHeading);
+  container.appendChild(bigAltitude);
   container.appendChild(detail);
 
   const tracker = new DeviceOrientationTracker();
@@ -61,6 +67,7 @@ export function createHeadingCheckPanel(): HTMLDivElement {
         active = false;
         button.textContent = "方位チェック開始";
         bigHeading.classList.add("hidden");
+        bigAltitude.classList.add("hidden");
         detail.classList.add("hidden");
         return;
       }
@@ -75,6 +82,7 @@ export function createHeadingCheckPanel(): HTMLDivElement {
       active = true;
       button.textContent = "方位チェック停止";
       bigHeading.classList.remove("hidden");
+      bigAltitude.classList.remove("hidden");
       detail.classList.remove("hidden");
 
       tracker.start(
@@ -83,8 +91,9 @@ export function createHeadingCheckPanel(): HTMLDivElement {
         },
         (info: DeviceOrientationDebugInfo) => {
           bigHeading.textContent = info.sample
-            ? `${cardinalFor(info.sample.azDeg)} (${info.sample.azDeg.toFixed(0)}°)`
+            ? `方位 ${cardinalFor(info.sample.azDeg)} (${info.sample.azDeg.toFixed(0)}°)`
             : "計測不可 (値が棄却されました)";
+          bigAltitude.textContent = info.sample ? `仰角 ${info.sample.altDeg.toFixed(0)}°` : "";
 
           detail.textContent =
             `webkitCompassHeading(raw): ${fmt(info.webkitCompassHeading)}° / ` +
