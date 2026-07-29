@@ -20,52 +20,10 @@ body {
   display: block;
 }
 
-#debug-panel {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 10;
-  max-width: 320px;
-  max-height: 100vh;
-  overflow-y: auto;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.6);
-  font-size: 12px;
-  line-height: 1.5;
-  box-sizing: border-box;
-}
-
-#debug-panel fieldset {
-  margin: 0 0 10px;
-  padding: 6px 8px;
-  border: 1px solid #555;
-}
-
-#debug-panel legend {
-  padding: 0 4px;
-  color: #9cf;
-}
-
-#debug-panel label {
-  display: block;
-  margin: 4px 0;
-}
-
-#debug-panel select,
-#debug-panel input[type="range"] {
-  width: 100%;
-}
-
-#debug-panel .row {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-}
-
 #loading-overlay {
   position: absolute;
   inset: 0;
-  z-index: 20;
+  z-index: 30;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -79,41 +37,144 @@ body {
   display: none;
 }
 
-#sky-lock-button {
+/* Exhibit UI: kept minimal so the sky itself stays the focus of the screen. */
+
+#layer-bar {
   position: absolute;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  z-index: 15;
-  padding: 10px 20px;
-  border: 1px solid #777;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.6);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0));
+}
+
+#layer-bar select {
+  flex: 0 1 30vw;
+  min-width: 0;
+  padding: 6px 6px;
+  border: 1px solid #666;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.5);
   color: #eee;
-  font-size: 14px;
+  font-size: 12px;
 }
 
-#sky-lock-button:disabled {
-  opacity: 0.5;
+#layer-blend {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 2px;
 }
 
-#ui-toggle-button {
+#top-icon-bar {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 20;
-  padding: 6px 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.icon-button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #777;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
   color: #eee;
+}
+
+.icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-button.active {
+  border-color: #6cf;
+  color: #6cf;
+}
+
+.icon-button:disabled {
+  opacity: 0.5;
+}
+
+.ui-hidden #layer-bar,
+.ui-hidden #sky-lock-button,
+.ui-hidden #debug-toggle-button {
+  display: none;
+}
+
+/* Dev/debug tools: off by default, shown via #debug-toggle-button. */
+
+#colormap-panel,
+#sensor-debug-panel,
+#heading-check-panel,
+#ring-check-button {
+  display: none;
+}
+
+.debug-visible #colormap-panel,
+.debug-visible #sensor-debug-panel,
+.debug-visible #heading-check-panel,
+.debug-visible #ring-check-button {
+  display: block;
+}
+
+/* Immersive mode wins over the debug toggle - hide debug tools regardless. */
+.ui-hidden #colormap-panel,
+.ui-hidden #sensor-debug-panel,
+.ui-hidden #heading-check-panel,
+.ui-hidden #ring-check-button {
+  display: none;
+}
+
+#colormap-panel {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  z-index: 15;
+  max-width: 320px;
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.6);
   font-size: 12px;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+#colormap-panel fieldset {
+  margin: 0 0 10px;
+  padding: 6px 8px;
+  border: 1px solid #555;
+}
+
+#colormap-panel legend {
+  padding: 0 4px;
+  color: #9cf;
+}
+
+#colormap-panel label {
+  display: block;
+  margin: 4px 0;
+}
+
+#colormap-panel select {
+  width: 100%;
 }
 
 #sensor-debug-panel {
   position: absolute;
   left: 0;
-  bottom: 0;
+  bottom: 60px;
   z-index: 15;
   padding: 8px 10px;
   background: rgba(0, 0, 0, 0.6);
@@ -132,7 +193,7 @@ body {
 
 #heading-check-panel {
   position: absolute;
-  bottom: 8px;
+  bottom: 60px;
   right: 8px;
   z-index: 15;
   max-width: min(260px, calc(100vw - 16px));
@@ -171,14 +232,13 @@ body {
   word-break: break-all;
 }
 
-#heading-check-panel.hidden,
 #heading-check-panel .hidden {
   display: none;
 }
 
 #ring-check-button {
   position: absolute;
-  top: 48px;
+  top: 52px;
   right: 8px;
   z-index: 15;
   max-width: min(200px, calc(100vw - 16px));
@@ -190,14 +250,11 @@ body {
   font-size: 12px;
 }
 
+/* Overrides the generic "shown while .debug-visible" rules above for
+   platforms where the underlying API isn't even available - these two
+   panels opt out entirely by adding their own .hidden class in JS. Placed
+   last so it wins the tie in specificity against the .debug-visible rules. */
+#heading-check-panel.hidden,
 #ring-check-button.hidden {
-  display: none;
-}
-
-.ui-hidden #debug-panel,
-.ui-hidden #sky-lock-button,
-.ui-hidden #sensor-debug-panel,
-.ui-hidden #heading-check-panel,
-.ui-hidden #ring-check-button {
   display: none;
 }

@@ -11,8 +11,10 @@ import { SkyLayerMaterial } from "./gl/SkyLayerMaterial";
 import { createSkySphere } from "./scene/createSkySphere";
 import { isSkyLockSupported, SkyLockController } from "./skyLock";
 import type { LayerState } from "./types";
-import { createDebugPanel } from "./ui/debugPanel";
+import { createColormapPanel } from "./ui/colormapPanel";
+import { createDebugToggle } from "./ui/debugToggle";
 import { createHeadingCheckPanel } from "./ui/headingCheckPanel";
+import { createLayerBar } from "./ui/layerBar";
 import { createRingCheckButton } from "./ui/ringCheckButton";
 import { createSensorDebugPanel } from "./ui/sensorDebugPanel";
 import { createSkyLockButton } from "./ui/skyLockButton";
@@ -76,6 +78,15 @@ let debugLookDirection: THREE.Vector3 | null = null;
 
 const skyLock = new SkyLockController(camera, controls, scene);
 
+// Small icon-button row (top-right): debug-tools toggle, sky-lock toggle,
+// then the UI-hide toggle last so it stays visible even under .ui-hidden
+// (see style.css) and can always be used to bring the UI back.
+const topIconBar = document.createElement("div");
+topIconBar.id = "top-icon-bar";
+app.appendChild(topIconBar);
+
+topIconBar.appendChild(createDebugToggle(app));
+
 if (isSkyLockSupported()) {
   const skyLockButton = createSkyLockButton(() => {
     void (async () => {
@@ -92,24 +103,27 @@ if (isSkyLockSupported()) {
       }
     })();
   });
-  app.appendChild(skyLockButton);
+  topIconBar.appendChild(skyLockButton);
 
   const sensorDebugPanel = createSensorDebugPanel();
   app.appendChild(sensorDebugPanel.element);
   skyLock.onDebugUpdate = (info) => sensorDebugPanel.update(info);
 
-  // Keeps the button label + sensor readout in sync even when skyLock
+  // Keeps the button state + sensor readout in sync even when skyLock
   // disables itself internally (e.g. the no-sample timeout), not just on
   // explicit clicks.
   skyLock.onStateChange = (enabled) => {
-    skyLockButton.textContent = enabled ? "自由視点に戻る" : "実際の空と同期";
+    skyLockButton.classList.toggle("active", enabled);
+    skyLockButton.title = enabled ? "自由視点に戻る" : "実際の空と同期";
+    skyLockButton.setAttribute("aria-label", skyLockButton.title);
     sensorDebugPanel.setEnabled(enabled);
   };
 }
 
+topIconBar.appendChild(createUiVisibilityToggle(app));
+
 app.appendChild(createHeadingCheckPanel());
 app.appendChild(createRingCheckButton(scene));
-app.appendChild(createUiVisibilityToggle(app));
 
 let lastFrameTimeMs = performance.now();
 
@@ -167,16 +181,35 @@ async function main(): Promise<void> {
   applyLayer("A", layerStateA);
   applyLayer("B", layerStateB);
 
-  const panel = createDebugPanel({
+  // Dev-only colormap picker (hidden by default, see #debug-toggle-button) -
+  // the exhibit UI itself only exposes survey choice + blend, via layerBar.
+  const colormapPanel = createColormapPanel({
     surveys: SURVEYS,
     colormapNames,
     initialLayerA: layerStateA,
     initialLayerB: layerStateB,
+    onColormapChange: (slot, colormap) => {
+      const state = slot === "A" ? layerStateA : layerStateB;
+      state.colormap = colormap;
+      applyLayer(slot, state);
+    },
+  });
+  app.appendChild(colormapPanel.element);
+
+  const layerBar = createLayerBar({
+    surveys: SURVEYS,
+    initialLayerA: layerStateA,
+    initialLayerB: layerStateB,
     initialBlend: 0,
-    onLayerChange: applyLayer,
+    onSurveyChange: (slot, surveyName) => {
+      const state = slot === "A" ? layerStateA : layerStateB;
+      state.surveyName = surveyName;
+      applyLayer(slot, state);
+      colormapPanel.setSurvey(slot, surveyName);
+    },
     onBlendChange: (value) => material.setBlend(value),
   });
-  app.appendChild(panel);
+  app.appendChild(layerBar);
 
   loadingOverlay.classList.add("hidden");
 }
