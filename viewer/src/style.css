@@ -176,9 +176,28 @@ body {
   display: none;
 }
 
+#ring-check-button {
+  position: absolute;
+  top: 48px;
+  right: 8px;
+  z-index: 15;
+  max-width: min(200px, calc(100vw - 16px));
+  padding: 6px 10px;
+  border: 1px solid #777;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #eee;
+  font-size: 12px;
+}
+
+#ring-check-button.hidden {
+  display: none;
+}
+
 .ui-hidden #debug-panel,
 .ui-hidden #sky-lock-button,
 .ui-hidden #sensor-debug-panel,
-.ui-hidden #heading-check-panel {
+.ui-hidden #heading-check-panel,
+.ui-hidden #ring-check-button {
   display: none;
 }
