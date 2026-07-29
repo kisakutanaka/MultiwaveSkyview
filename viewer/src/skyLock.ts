@@ -9,16 +9,16 @@ import {
   type DeviceOrientationSample,
 } from "./sensors/deviceOrientation";
 import { isGeolocationSupported, requestGeoPosition, type GeoPosition } from "./sensors/geolocation";
-import { computeSkyDirectionQuaternion } from "./skyCameraOrientation";
+import { computeSkyDirectionQuaternion, computeSmoothingFactor } from "./skyCameraOrientation";
 import { localSiderealTimeDeg } from "./astro/time";
 
 const NO_SAMPLE_TIMEOUT_MS = 5000;
-// Fraction of the remaining angular gap closed per frame: smooths out raw
-// sensor jitter (most visible when the phone is held near-vertical, i.e.
-// beta ~ 90deg, which is the natural "hold it up like a window" pose for
-// this app - exactly where this style of Euler-angle orientation math is
-// most prone to noisy readings) instead of snapping the camera every frame.
-const SMOOTHING_FACTOR = 0.2;
+// Exponential smoothing time constant (seconds), not a fixed per-frame
+// fraction: smooths out raw sensor jitter (compass/gyro noise is visible
+// even holding the phone still) in a way that stays consistent regardless
+// of frame rate. ~150ms settles within a few hundred ms - responsive enough
+// to feel "live" while filtering out most sensor-noise-frequency jitter.
+const SMOOTHING_TIME_CONSTANT_SECONDS = 0.15;
 
 export function isSkyLockSupported(): boolean {
   return isDeviceOrientationSupported() && isGeolocationSupported();
@@ -129,14 +129,15 @@ export class SkyLockController {
     }
   }
 
-  /** Call once per animation frame; no-op until enabled and the first sensor sample arrives. */
-  update(): void {
+  /** Call once per animation frame with the elapsed seconds since the last call; no-op until enabled and the first sensor sample arrives. */
+  update(deltaSeconds: number): void {
     if (!this.enabled || !this.latestSample || !this.position) {
       return;
     }
 
     const target = computeSkyDirectionQuaternion(this.latestSample, this.position, new Date());
-    this.currentQuaternion.slerp(target, SMOOTHING_FACTOR);
+    const smoothing = computeSmoothingFactor(deltaSeconds, SMOOTHING_TIME_CONSTANT_SECONDS);
+    this.currentQuaternion.slerp(target, smoothing);
     // Force-overwrite: must run after controls.update() (see field comment
     // on currentQuaternion above) to win the fight over camera.quaternion.
     this.camera.quaternion.copy(this.currentQuaternion);

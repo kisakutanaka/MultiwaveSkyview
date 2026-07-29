@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { altAzToEquatorial, equatorialToGalactic } from "./astro/coords";
 import { galacticToWorldDirection } from "./astro/galacticToDirection";
 import { localSiderealTimeDeg } from "./astro/time";
-import { computeSkyDirectionQuaternion } from "./skyCameraOrientation";
+import { computeSkyDirectionQuaternion, computeSmoothingFactor } from "./skyCameraOrientation";
 
 const POSITION = { latitudeDeg: 35.681236, longitudeDeg: 139.767125 };
 const DATE = new Date("2026-07-27T12:00:00.000Z");
@@ -78,5 +78,39 @@ describe("computeSkyDirectionQuaternion", () => {
       const angleDeg = THREE.MathUtils.radToDeg(up.angleTo(zenithPerp));
       expect(angleDeg).toBeLessThan(0.5);
     }
+  });
+});
+
+describe("computeSmoothingFactor", () => {
+  it("stays within [0, 1) for any non-negative deltaSeconds", () => {
+    for (const dt of [0, 1 / 240, 1 / 60, 1 / 30, 0.1, 0.5, 5]) {
+      const factor = computeSmoothingFactor(dt, 0.15);
+      expect(factor).toBeGreaterThanOrEqual(0);
+      expect(factor).toBeLessThan(1);
+    }
+  });
+
+  it("is 0 at deltaSeconds=0 (no time passed, no movement toward target)", () => {
+    expect(computeSmoothingFactor(0, 0.15)).toBe(0);
+  });
+
+  it("clamps negative deltaSeconds (e.g. a clock glitch) to 0 instead of producing a negative/undefined factor", () => {
+    expect(computeSmoothingFactor(-0.1, 0.15)).toBe(0);
+  });
+
+  it("reaches ~63% after exactly one time constant, regardless of how that time is split across frames", () => {
+    // Frame-rate independence is the whole point: applying the smoothing
+    // in one big step or many small steps over the same total elapsed time
+    // should converge to (approximately) the same result.
+    const timeConstant = 0.15;
+    const oneStep = computeSmoothingFactor(timeConstant, timeConstant);
+    expect(oneStep).toBeCloseTo(1 - Math.exp(-1), 6);
+
+    let remaining = 1;
+    const dtPerFrame = timeConstant / 1000;
+    for (let i = 0; i < 1000; i++) {
+      remaining *= 1 - computeSmoothingFactor(dtPerFrame, timeConstant);
+    }
+    expect(1 - remaining).toBeCloseTo(oneStep, 3);
   });
 });

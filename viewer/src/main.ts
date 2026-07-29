@@ -111,10 +111,15 @@ app.appendChild(createHeadingCheckPanel());
 app.appendChild(createRingCheckButton(scene));
 app.appendChild(createUiVisibilityToggle(app));
 
+let lastFrameTimeMs = performance.now();
+
 function animate(): void {
   requestAnimationFrame(animate);
+  const nowMs = performance.now();
+  const deltaSeconds = (nowMs - lastFrameTimeMs) / 1000;
+  lastFrameTimeMs = nowMs;
   controls.update();
-  skyLock.update();
+  skyLock.update(deltaSeconds);
   if (debugLookDirection) {
     camera.lookAt(debugLookDirection);
   }

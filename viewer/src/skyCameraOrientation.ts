@@ -52,3 +52,17 @@ export function computeSkyDirectionQuaternion(
   target.lookAt(direction);
   return target.quaternion.clone();
 }
+
+/**
+ * Frame-rate-independent smoothing factor for slerping toward a new target
+ * this frame, given the elapsed time and a desired exponential time
+ * constant (both in seconds). Replaces a fixed "20% per frame" factor,
+ * which implicitly assumed ~60fps: at a lower/uneven frame rate the same
+ * fixed fraction closes a larger/inconsistent fraction of the gap per
+ * elapsed second, so smoothing strength drifted with frame rate instead of
+ * staying constant - contributing to visible jitter passed through from
+ * noisy raw compass/gyro readings.
+ */
+export function computeSmoothingFactor(deltaSeconds: number, timeConstantSeconds: number): number {
+  return 1 - Math.exp(-Math.max(deltaSeconds, 0) / timeConstantSeconds);
+}
