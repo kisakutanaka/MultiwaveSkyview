@@ -81,9 +81,9 @@ export class SkyLockController {
     // same astro pipeline used for the live camera direction, to help tell
     // apart a sensor-side bug from a coordinate-math bug (see
     // scene/createCompassRing.ts doc comment).
-    const lstDeg = localSiderealTimeDeg(new Date(), position.longitudeDeg);
-    this.compassRing = createCompassRing({ latDeg: position.latitudeDeg, lstDeg });
-    this.scene.add(this.compassRing);
+    // const lstDeg = localSiderealTimeDeg(new Date(), position.longitudeDeg);
+    // this.compassRing = createCompassRing({ latDeg: position.latitudeDeg, lstDeg });
+    // this.scene.add(this.compassRing);
 
     this.tracker.start(
       (sample) => {
@@ -119,11 +119,11 @@ export class SkyLockController {
     this.position = null;
     this.controls.enabled = true;
     this.enabled = false;
-    if (this.compassRing) {
-      this.scene.remove(this.compassRing);
-      disposeCompassRing(this.compassRing);
-      this.compassRing = null;
-    }
+    // if (this.compassRing) {
+      // this.scene.remove(this.compassRing);
+      // disposeCompassRing(this.compassRing);
+      // this.compassRing = null;
+    // }
     if (wasEnabled) {
       this.onStateChange?.(false);
     }
