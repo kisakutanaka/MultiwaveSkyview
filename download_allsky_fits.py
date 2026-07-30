@@ -148,6 +148,9 @@ def main() -> None:
 
     for name in names:
         config = SURVEYS[name]
+        if "hips" not in config:
+            print(f"[skip] {name}: no 'hips' id (built by a separate script, see allsky_surveys.py)")
+            continue
         kind = config.get("kind", "scalar")
         raw_path = raw_path_for(name, config)
         if args.force:

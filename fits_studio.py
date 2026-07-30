@@ -121,6 +121,16 @@ SURVEY_HINTS = {
         "DSS2 blueバンド。単体では使わず、02c(red)と組み合わせて"
         "「2バンド合成」モードで見るのが基本。"
     ),
+    "02e_visible_gaia_dr3_mag": (
+        "Gaia DR3を等級付きでカタログ取得し(download_gaia_catalog.py)、"
+        "等級で明るさ・大きさを変えたGaussian PSFでラスタライズしたもの"
+        "(rasterize_gaia_catalog.py)。02の密度マップと違い、明るい星が"
+        "大きく/明るく写る写真的な見た目になる。Gaiaは非常に明るい肉眼等級の"
+        "星(目安G≲3等、シリウス・ベテルギウスなど)で検出器が飽和し等級が"
+        "信頼できない既知の制限があるが(docs/gaia-data-fields-examples.md"
+        "参照)、Yale Bright Star Catalogueで該当の星を正しいV等級に置き換え"
+        "済み(download_bright_star_catalog.py)。"
+    ),
     "03_ultraviolet_galex_nuv": (
         "GALEX近紫外線。全天をカバーしていない(未観測領域は黒/NaN)。"
         "strengthを上げすぎると欠測領域との境界が不自然に目立つので注意。"

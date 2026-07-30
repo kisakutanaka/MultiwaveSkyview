@@ -6,6 +6,10 @@ __pycache__/
 # and would blow past GitHub's 100MB per-file push limit anyway.
 allsky_textures/fits/
 
+# Raw Gaia TAP catalog cache (see download_gaia_catalog.py): regenerable
+# from the Gaia archive, not needed for deployment.
+allsky_textures/gaia_catalog/
+
 # allsky_textures/png/ IS tracked - it's the data the deployed site serves,
 # and each file is well under 100MB.
 

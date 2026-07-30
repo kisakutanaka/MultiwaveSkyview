@@ -68,6 +68,16 @@ SURVEYS = {
         "max_percentile": 99.8,
         "stretch": "asinh",
     },
+    # No "hips" key: not fetched via hips2fits. Built from a direct Gaia TAP
+    # catalog query (download_gaia_catalog.py) rasterized with a
+    # magnitude-weighted PSF (rasterize_gaia_catalog.py), see
+    # docs/gaia-magnitude-pipeline-plan.md. download_allsky_fits.py skips
+    # entries without "hips".
+    "02e_visible_gaia_dr3_mag": {
+        "min_percentile": 1.0,
+        "max_percentile": 99.9,
+        "stretch": "asinh",
+    },
     "03_ultraviolet_galex_nuv": {
         "hips": "CDS/P/GALEXGR6_7/NUV",
         "min_percentile": 1.0,

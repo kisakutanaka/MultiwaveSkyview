@@ -47,6 +47,12 @@ export const SURVEYS: SurveyConfig[] = [
   },
   {
     kind: "color",
+    name: "02f_visible_gaia_dr3_color",
+    label: "可視光 (Gaia DR3 等級・着色)",
+    rawUrl: dataUrl("png_colored/02f_visible_gaia_dr3_color.png"),
+  },
+  {
+    kind: "color",
     name: "03_ultraviolet_galex_nuv",
     label: "紫外線 (GALEX NUV)",
     rawUrl: dataUrl("png_colored/03_ultraviolet_galex_nuv.png"),

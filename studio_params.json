@@ -19,6 +19,26 @@
     "strength": 10.0,
     "stretch": "asinh"
   },
+  "02_visible_gaia_dr3_density": {
+    "colormap": "gray",
+    "custom_colors": null,
+    "gamma": 1.0,
+    "max_percentile": 99.8,
+    "min_percentile": 0.5,
+    "output_width": 2048,
+    "strength": 10.0,
+    "stretch": "asinh"
+  },
+  "02e_visible_gaia_dr3_mag": {
+    "colormap": "cubehelix",
+    "custom_colors": null,
+    "gamma": 1.0,
+    "max_percentile": 99.9,
+    "min_percentile": 1.0,
+    "output_width": 2048,
+    "strength": 10.0,
+    "stretch": "asinh"
+  },
   "03_ultraviolet_galex_nuv": {
     "colormap": "custom",
     "custom_colors": [
