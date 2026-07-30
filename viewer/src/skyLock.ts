@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { createCompassRing, disposeCompassRing } from "./scene/createCompassRing";
 import {
   DeviceOrientationTracker,
   isDeviceOrientationSupported,
@@ -10,7 +9,6 @@ import {
 } from "./sensors/deviceOrientation";
 import { isGeolocationSupported, requestGeoPosition, type GeoPosition } from "./sensors/geolocation";
 import { computeSkyDirectionQuaternion, computeSmoothingFactor } from "./skyCameraOrientation";
-import { localSiderealTimeDeg } from "./astro/time";
 
 const NO_SAMPLE_TIMEOUT_MS = 5000;
 // Exponential smoothing time constant (seconds), not a fixed per-frame
@@ -27,13 +25,11 @@ export function isSkyLockSupported(): boolean {
 export class SkyLockController {
   private readonly camera: THREE.Camera;
   private readonly controls: OrbitControls;
-  private readonly scene: THREE.Scene;
   private readonly tracker = new DeviceOrientationTracker();
   private position: GeoPosition | null = null;
   private latestSample: DeviceOrientationSample | null = null;
   private noSampleTimer: number | null = null;
   private enabled = false;
-  private compassRing: THREE.Group | null = null;
   // Smoothing state kept independent of camera.quaternion: OrbitControls.update()
   // (called before skyLock.update() every frame in main.ts's animate loop)
   // unconditionally re-asserts its own tracked orientation onto the camera
@@ -49,10 +45,9 @@ export class SkyLockController {
   /** Fired on every raw sensor event, including rejected ones - for an on-screen debug readout on devices without a remote debugger attached. */
   onDebugUpdate: ((info: DeviceOrientationDebugInfo) => void) | null = null;
 
-  constructor(camera: THREE.Camera, controls: OrbitControls, scene: THREE.Scene) {
+  constructor(camera: THREE.Camera, controls: OrbitControls) {
     this.camera = camera;
     this.controls = controls;
-    this.scene = scene;
   }
 
   get isEnabled(): boolean {
@@ -76,14 +71,6 @@ export class SkyLockController {
     this.enabled = true;
     this.currentQuaternion.copy(this.camera.quaternion);
     this.onStateChange?.(true);
-
-    // Debug overlay: ground-truth N/E/S/W/zenith markers computed via the
-    // same astro pipeline used for the live camera direction, to help tell
-    // apart a sensor-side bug from a coordinate-math bug (see
-    // scene/createCompassRing.ts doc comment).
-    // const lstDeg = localSiderealTimeDeg(new Date(), position.longitudeDeg);
-    // this.compassRing = createCompassRing({ latDeg: position.latitudeDeg, lstDeg });
-    // this.scene.add(this.compassRing);
 
     this.tracker.start(
       (sample) => {
@@ -119,11 +106,6 @@ export class SkyLockController {
     this.position = null;
     this.controls.enabled = true;
     this.enabled = false;
-    // if (this.compassRing) {
-      // this.scene.remove(this.compassRing);
-      // disposeCompassRing(this.compassRing);
-      // this.compassRing = null;
-    // }
     if (wasEnabled) {
       this.onStateChange?.(false);
     }

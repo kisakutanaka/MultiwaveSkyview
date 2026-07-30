@@ -76,7 +76,7 @@ let debugLookDirection: THREE.Vector3 | null = null;
   },
 };
 
-const skyLock = new SkyLockController(camera, controls, scene);
+const skyLock = new SkyLockController(camera, controls);
 
 // Small icon-button row (top-right): debug-tools toggle, sky-lock toggle,
 // then the UI-hide toggle last so it stays visible even under .ui-hidden
