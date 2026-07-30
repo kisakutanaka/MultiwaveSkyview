@@ -13,7 +13,15 @@ body {
 #app {
   position: relative;
   width: 100vw;
+  /* 100vh on mobile browsers (not installed as a PWA) is measured against
+     the viewport with the address bar/toolbar collapsed, so a
+     position:absolute; bottom:0 element (the layer bar) ends up below the
+     actually-visible area and hidden behind the toolbar when it's shown.
+     100dvh tracks the real, currently-visible viewport instead. Keep the
+     100vh line first as a fallback for browsers without dvh support - it's
+     simply overridden by the next line where dvh is understood. */
   height: 100vh;
+  height: 100dvh;
 }
 
 #app canvas {
@@ -143,6 +151,7 @@ body {
   z-index: 15;
   max-width: 320px;
   max-height: calc(100vh - 60px);
+  max-height: calc(100dvh - 60px);
   overflow-y: auto;
   padding: 12px;
   background: rgba(0, 0, 0, 0.6);
