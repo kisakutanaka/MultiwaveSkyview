@@ -150,5 +150,19 @@
         "stretch": "asinh"
       }
     }
+  },
+  "gaia": {
+    "colored": true,
+    "colormap": null,
+    "custom_colors": null,
+    "mag_cutoff": 10.0,
+    "output_width": 2048,
+    "percentile": 99.8,
+    "saturation": 1.5,
+    "sigma_base": 0.3,
+    "sigma_max": 3.5,
+    "sigma_scale": 0.25,
+    "strength": 10.0,
+    "use_bright_stars": true
   }
 }

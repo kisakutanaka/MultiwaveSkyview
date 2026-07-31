@@ -35,21 +35,21 @@ export const SURVEYS: SurveyConfig[] = [
   },
   {
     kind: "color",
-    name: "02_visible_gaia_dr3_density",
-    label: "可視光 (Gaia DR3 密度マップ)",
-    rawUrl: dataUrl("png_colored/02_visible_gaia_dr3_density.png"),
-  },
-  {
-    kind: "color",
     name: "02c_visible_dss2_red+02d_visible_dss2_blue_rgb",
     label: "可視光 (DSS2 rgb)",
     rawUrl: dataUrl("png_colored/02c_visible_dss2_red+02d_visible_dss2_blue_rgb.png"),
   },
   {
     kind: "color",
-    name: "02f_visible_gaia_dr3_color",
+    name: "02f_visible_gaia_dr3_color_g10cut3.5",
+    label: "可視光 (Gaia DR3 等級・着色 実際の見た目に近い)",
+    rawUrl: dataUrl("png_colored/02f_visible_gaia_dr3_color_g10cut3.5.png"),
+  },
+  {
+    kind: "color",
+    name: "02f_visible_gaia_dr3_color_g10cut10",
     label: "可視光 (Gaia DR3 等級・着色)",
-    rawUrl: dataUrl("png_colored/02f_visible_gaia_dr3_color.png"),
+    rawUrl: dataUrl("png_colored/02f_visible_gaia_dr3_color_g10cut10.png"),
   },
   {
     kind: "color",

@@ -45,6 +45,9 @@ from rasterize_gaia_catalog import BRIGHT_STAR_MATCH_RADIUS_ARCSEC
 
 OUTPUT_DIR = Path("allsky_textures") / "png_colored"
 DEFAULT_OUTPUT_NAME = "02f_visible_gaia_dr3_color"
+DEFAULT_SIGMA_BASE = 0.9
+DEFAULT_SIGMA_SCALE = 0.4
+DEFAULT_SIGMA_MAX = 6.0
 
 # Rough OBAFGKM color sequence, (color_index, (r, g, b) in 0-1) sorted
 # ascending. Two separate breakpoint sets because BP-RP (Gaia) and B-V
@@ -76,14 +79,78 @@ def color_index_to_rgb(color_index: np.ndarray, breakpoints: list[tuple[float, t
     return rgb
 
 
-def rasterize_color(ra_deg: np.ndarray, dec_deg: np.ndarray, mag: np.ndarray, rgb: np.ndarray, mag_limit: float) -> np.ndarray:
+def apply_saturation(rgb: np.ndarray, saturation: float = 1.0) -> np.ndarray:
+    """0 = white/no color, 1 = as mapped by color_index_to_rgb, >1 exaggerates
+    each star's own color (a red star gets redder, a blue star gets bluer,
+    white/Sun-like stars stay white) - scales distance from white, doesn't
+    shift the whole population toward one hue."""
+    adjusted = 1.0 + saturation * (rgb - 1.0)
+    return np.clip(adjusted, 0.0, 1.0)
+
+
+def load_and_merge_color_stars(
+    mag_limit: float,
+    bright_star_mag_limit: float | None,
+    match_radius_arcsec: float = BRIGHT_STAR_MATCH_RADIUS_ARCSEC,
+    saturation: float = 1.0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Loads the downloaded Gaia catalog for mag_limit, colors each star by
+    its BP-RP (or the bright-star supplement's B-V), and returns
+    (ra, dec, mag, rgb). Shared by this script's CLI and fits_studio.py's
+    Gaia mode."""
+    catalog_path = catalog_path_for(mag_limit)
+    if not catalog_path.exists():
+        raise FileNotFoundError(f"Catalog not found: {catalog_path}\nRun download_gaia_catalog.py --mag-limit {mag_limit} first.")
+    table = Table.read(catalog_path, format="csv")
+    ra, dec, mag = np.asarray(table["ra"]), np.asarray(table["dec"]), np.asarray(table["phot_g_mean_mag"])
+    bp_rp = np.asarray(table["bp_rp"], dtype=np.float64)
+    bp_rp[~np.isfinite(bp_rp)] = 0.8  # Sun-like default for the ~0.06% missing bp_rp
+    rgb = color_index_to_rgb(bp_rp, BP_RP_BREAKPOINTS)
+
+    if bright_star_mag_limit is not None:
+        bright_path = bright_star_catalog_path_for(bright_star_mag_limit)
+        if bright_path.exists():
+            bright_table = Table.read(bright_path, format="csv")
+            bright_ra = np.asarray(bright_table["ra"])
+            bright_dec = np.asarray(bright_table["dec"])
+            bright_mag = np.asarray(bright_table["vmag"])
+            bright_bv = np.asarray(bright_table["bv"], dtype=np.float64)
+            bright_bv[~np.isfinite(bright_bv)] = 0.65
+            bright_rgb = color_index_to_rgb(bright_bv, BV_BREAKPOINTS)
+
+            gaia_coords = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
+            bright_coords = SkyCoord(ra=bright_ra * u.deg, dec=bright_dec * u.deg)
+            idx, sep2d, _ = bright_coords.match_to_catalog_sky(gaia_coords)
+            matched = sep2d.arcsec < match_radius_arcsec
+            keep_mask = np.ones(len(ra), dtype=bool)
+            keep_mask[idx[matched]] = False
+
+            ra = np.concatenate([ra[keep_mask], bright_ra])
+            dec = np.concatenate([dec[keep_mask], bright_dec])
+            mag = np.concatenate([mag[keep_mask], bright_mag])
+            rgb = np.concatenate([rgb[keep_mask], bright_rgb])
+
+    rgb = apply_saturation(rgb, saturation)
+    return ra, dec, mag, rgb
+
+
+def rasterize_color(
+    ra_deg: np.ndarray,
+    dec_deg: np.ndarray,
+    mag: np.ndarray,
+    rgb: np.ndarray,
+    mag_limit: float,
+    sigma_base: float = DEFAULT_SIGMA_BASE,
+    sigma_scale: float = DEFAULT_SIGMA_SCALE,
+    sigma_max: float = DEFAULT_SIGMA_MAX,
+) -> np.ndarray:
     wcs = WCS(build_car_wcs(WIDTH, HEIGHT))
     coords = SkyCoord(ra=ra_deg * u.deg, dec=dec_deg * u.deg, frame="icrs")
     gal = coords.galactic
     x, y = wcs.world_to_pixel_values(gal.l.deg, gal.b.deg)
 
     flux = 10 ** (-0.4 * (mag - mag_limit))
-    sigma = np.clip(0.9 + 0.4 * (mag_limit - mag), 0.9, 6.0)
+    sigma = np.clip(sigma_base + sigma_scale * (mag_limit - mag), sigma_base, sigma_max)
 
     canvas = np.zeros((HEIGHT, WIDTH, 3), dtype=np.float32)
     yy_full, xx_full = np.mgrid[0:HEIGHT, 0:WIDTH]
@@ -131,53 +198,15 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    catalog_path = catalog_path_for(args.mag_limit)
-    if not catalog_path.exists():
-        raise SystemExit(f"Catalog not found: {catalog_path}\nRun download_gaia_catalog.py --mag-limit {args.mag_limit} first.")
 
     output_path = OUTPUT_DIR / f"{args.output_name}.png"
     if output_path.exists() and not args.force:
         print(f"[skip] exists: {output_path}")
         return
 
-    print(f"[load] {catalog_path}")
-    table = Table.read(catalog_path, format="csv")
-    print(f"[load] {len(table):,} stars")
-    ra, dec, mag = np.asarray(table["ra"]), np.asarray(table["dec"]), np.asarray(table["phot_g_mean_mag"])
-    bp_rp = np.asarray(table["bp_rp"], dtype=np.float64)
-    missing_color = ~np.isfinite(bp_rp)
-    if missing_color.any():
-        print(f"[color] {missing_color.sum():,} stars missing bp_rp, defaulting to Sun-like white")
-        bp_rp[missing_color] = 0.8
-    rgb = color_index_to_rgb(bp_rp, BP_RP_BREAKPOINTS)
-
-    if not args.no_bright_stars:
-        bright_path = bright_star_catalog_path_for(args.bright_star_mag_limit)
-        if bright_path.exists():
-            print(f"[load] {bright_path}")
-            bright_table = Table.read(bright_path, format="csv")
-            print(f"[load] {len(bright_table)} bright stars")
-            bright_ra = np.asarray(bright_table["ra"])
-            bright_dec = np.asarray(bright_table["dec"])
-            bright_mag = np.asarray(bright_table["vmag"])
-            bright_bv = np.asarray(bright_table["bv"], dtype=np.float64)
-            bright_bv[~np.isfinite(bright_bv)] = 0.65
-            bright_rgb = color_index_to_rgb(bright_bv, BV_BREAKPOINTS)
-
-            gaia_coords = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
-            bright_coords = SkyCoord(ra=bright_ra * u.deg, dec=bright_dec * u.deg)
-            idx, sep2d, _ = bright_coords.match_to_catalog_sky(gaia_coords)
-            matched = sep2d.arcsec < BRIGHT_STAR_MATCH_RADIUS_ARCSEC
-            print(f"[bright-stars] {matched.sum()}/{len(bright_ra)} matched an existing Gaia row (replacing)")
-            keep_mask = np.ones(len(ra), dtype=bool)
-            keep_mask[idx[matched]] = False
-
-            ra = np.concatenate([ra[keep_mask], bright_ra])
-            dec = np.concatenate([dec[keep_mask], bright_dec])
-            mag = np.concatenate([mag[keep_mask], bright_mag])
-            rgb = np.concatenate([rgb[keep_mask], bright_rgb])
-        else:
-            print(f"[skip] bright-star supplement not found: {bright_path} (run download_bright_star_catalog.py first)")
+    print(f"[load] {catalog_path_for(args.mag_limit)}")
+    ra, dec, mag, rgb = load_and_merge_color_stars(args.mag_limit, None if args.no_bright_stars else args.bright_star_mag_limit)
+    print(f"[load] {len(ra):,} stars (after bright-star merge)")
 
     start = time.monotonic()
     canvas = rasterize_color(ra, dec, mag, rgb, args.mag_limit)

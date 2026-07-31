@@ -46,6 +46,9 @@ from download_gaia_catalog import catalog_path_for
 
 DEFAULT_SURVEY_NAME = "02e_visible_gaia_dr3_mag"
 BRIGHT_STAR_MATCH_RADIUS_ARCSEC = 30.0
+DEFAULT_SIGMA_BASE = 0.9
+DEFAULT_SIGMA_SCALE = 0.4
+DEFAULT_SIGMA_MAX = 6.0
 
 
 def merge_bright_stars(
@@ -77,14 +80,49 @@ def merge_bright_stars(
     return merged_ra, merged_dec, merged_mag
 
 
-def rasterize(ra_deg: np.ndarray, dec_deg: np.ndarray, mag: np.ndarray, mag_limit: float) -> np.ndarray:
+def load_and_merge_stars(
+    mag_limit: float,
+    bright_star_mag_limit: float | None,
+    match_radius_arcsec: float = BRIGHT_STAR_MATCH_RADIUS_ARCSEC,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Loads the downloaded Gaia catalog for mag_limit (see
+    download_gaia_catalog.py) and, unless bright_star_mag_limit is None,
+    merges in the Yale BSC bright-star supplement (see merge_bright_stars).
+    Shared by this script's CLI and fits_studio.py's Gaia mode."""
+    catalog_path = catalog_path_for(mag_limit)
+    if not catalog_path.exists():
+        raise FileNotFoundError(f"Catalog not found: {catalog_path}\nRun download_gaia_catalog.py --mag-limit {mag_limit} first.")
+    table = Table.read(catalog_path, format="csv")
+    ra, dec, mag = np.asarray(table["ra"]), np.asarray(table["dec"]), np.asarray(table["phot_g_mean_mag"])
+
+    if bright_star_mag_limit is not None:
+        bright_path = bright_star_catalog_path_for(bright_star_mag_limit)
+        if bright_path.exists():
+            bright_table = Table.read(bright_path, format="csv")
+            ra, dec, mag = merge_bright_stars(
+                ra, dec, mag,
+                np.asarray(bright_table["ra"]), np.asarray(bright_table["dec"]), np.asarray(bright_table["vmag"]),
+                match_radius_arcsec,
+            )
+    return ra, dec, mag
+
+
+def rasterize(
+    ra_deg: np.ndarray,
+    dec_deg: np.ndarray,
+    mag: np.ndarray,
+    mag_limit: float,
+    sigma_base: float = DEFAULT_SIGMA_BASE,
+    sigma_scale: float = DEFAULT_SIGMA_SCALE,
+    sigma_max: float = DEFAULT_SIGMA_MAX,
+) -> np.ndarray:
     wcs = WCS(build_car_wcs(WIDTH, HEIGHT))
     coords = SkyCoord(ra=ra_deg * u.deg, dec=dec_deg * u.deg, frame="icrs")
     gal = coords.galactic
     x, y = wcs.world_to_pixel_values(gal.l.deg, gal.b.deg)
 
     flux = 10 ** (-0.4 * (mag - mag_limit))
-    sigma = np.clip(0.9 + 0.4 * (mag_limit - mag), 0.9, 6.0)
+    sigma = np.clip(sigma_base + sigma_scale * (mag_limit - mag), sigma_base, sigma_max)
 
     canvas = np.zeros((HEIGHT, WIDTH), dtype=np.float32)
     yy_full, xx_full = np.mgrid[0:HEIGHT, 0:WIDTH]  # noqa: reused only for slicing below via indices
@@ -119,32 +157,15 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    catalog_path = catalog_path_for(args.mag_limit)
-    if not catalog_path.exists():
-        raise SystemExit(f"Catalog not found: {catalog_path}\nRun download_gaia_catalog.py --mag-limit {args.mag_limit} first.")
 
     output_path = FITS_DIR / f"{args.survey_name}.fits"
     if output_path.exists() and not args.force:
         print(f"[skip] exists: {output_path}")
         return
 
-    print(f"[load] {catalog_path}")
-    table = Table.read(catalog_path, format="csv")
-    print(f"[load] {len(table):,} stars")
-    ra, dec, mag = np.asarray(table["ra"]), np.asarray(table["dec"]), np.asarray(table["phot_g_mean_mag"])
-
-    if not args.no_bright_stars:
-        bright_path = bright_star_catalog_path_for(args.bright_star_mag_limit)
-        if bright_path.exists():
-            print(f"[load] {bright_path}")
-            bright_table = Table.read(bright_path, format="csv")
-            print(f"[load] {len(bright_table)} bright stars")
-            ra, dec, mag = merge_bright_stars(
-                ra, dec, mag,
-                np.asarray(bright_table["ra"]), np.asarray(bright_table["dec"]), np.asarray(bright_table["vmag"]),
-            )
-        else:
-            print(f"[skip] bright-star supplement not found: {bright_path} (run download_bright_star_catalog.py first)")
+    print(f"[load] {catalog_path_for(args.mag_limit)}")
+    ra, dec, mag = load_and_merge_stars(args.mag_limit, None if args.no_bright_stars else args.bright_star_mag_limit)
+    print(f"[load] {len(ra):,} stars (after bright-star merge)")
 
     start = time.monotonic()
     canvas = rasterize(ra, dec, mag, args.mag_limit)

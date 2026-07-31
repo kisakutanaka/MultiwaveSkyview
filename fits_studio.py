@@ -10,7 +10,11 @@ CLI flags.
 
 Also supports a 2-band RGB composite mode (e.g. DSS2 Red + DSS2 Blue -> a
 more photographic-looking color image than a single band + colormap, for
-surveys that publish separate color plates but no combined RGB product).
+surveys that publish separate color plates but no combined RGB product),
+and a Gaia rasterization mode (magnitude-weighted PSF star field, see
+docs/gaia-magnitude-pipeline-plan.md) with its own tunable star-size and
+color-tint controls, distinct from FITS percentile/stretch tuning since it
+renders directly from a star catalog rather than a raster image.
 
 Install:
     python -m pip install streamlit astropy numpy pillow matplotlib
@@ -39,6 +43,7 @@ from astropy.io import fits
 from PIL import Image
 
 from allsky_surveys import FITS_DIR, PNG_HEIGHT, PNG_WIDTH, SURVEYS
+from download_bright_star_catalog import catalog_path_for as bright_star_catalog_path_for
 from image_processing import (
     DEFAULT_STRENGTH,
     apply_colormap,
@@ -47,6 +52,11 @@ from image_processing import (
     resize_to,
     stretch_image,
 )
+from rasterize_gaia_catalog import load_and_merge_stars
+from rasterize_gaia_catalog import rasterize as gaia_rasterize_gray
+from rasterize_gaia_catalog_color import load_and_merge_color_stars
+from rasterize_gaia_catalog_color import rasterize_color as gaia_rasterize_color
+from rasterize_gaia_catalog_color import stretch_rgb
 
 PREVIEW_WIDTH = 900
 PREVIEW_HEIGHT = PREVIEW_WIDTH // 2
@@ -227,6 +237,46 @@ def band_controls(label_prefix: str, config: dict, defaults: dict, key_prefix: s
     return {"min_percentile": min_p, "max_percentile": max_p, "stretch": stretch, "strength": strength, "gamma": gamma}
 
 
+# Gaia mode: rasterizes straight from a downloaded star catalog (see
+# rasterize_gaia_catalog.py / rasterize_gaia_catalog_color.py), not from a
+# raster FITS - so it gets its own cached compute step instead of
+# load_survey_data/preview_data above. The full 8192x4096 splat is the slow
+# part (~4s for ~480k stars); caching it means only actually-changed
+# rasterize-affecting params (not stretch-only tweaks) pay that cost.
+@st.cache_data(show_spinner="Gaiaカタログを読み込み中...")
+def load_gaia_gray(mag_limit: float, use_bright_stars: bool) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    return load_and_merge_stars(mag_limit, 3.5 if use_bright_stars else None)
+
+
+@st.cache_data(show_spinner="Gaiaカタログを読み込み中...")
+def load_gaia_color(mag_limit: float, use_bright_stars: bool, saturation: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    return load_and_merge_color_stars(mag_limit, 3.5 if use_bright_stars else None, saturation=saturation)
+
+
+@st.cache_data(show_spinner="ラスタライズ中...")
+def rasterize_gaia_gray_cached(
+    mag_limit: float, use_bright_stars: bool, mag_cutoff: float, sigma_base: float, sigma_scale: float, sigma_max: float
+) -> np.ndarray:
+    ra, dec, mag = load_gaia_gray(mag_limit, use_bright_stars)
+    mask = mag < mag_cutoff
+    return gaia_rasterize_gray(ra[mask], dec[mask], mag[mask], mag_limit, sigma_base, sigma_scale, sigma_max)
+
+
+@st.cache_data(show_spinner="ラスタライズ中...")
+def rasterize_gaia_color_cached(
+    mag_limit: float,
+    use_bright_stars: bool,
+    mag_cutoff: float,
+    sigma_base: float,
+    sigma_scale: float,
+    sigma_max: float,
+    saturation: float,
+) -> np.ndarray:
+    ra, dec, mag, rgb = load_gaia_color(mag_limit, use_bright_stars, saturation)
+    mask = mag < mag_cutoff
+    return gaia_rasterize_color(ra[mask], dec[mask], mag[mask], rgb[mask], mag_limit, sigma_base, sigma_scale, sigma_max)
+
+
 st.set_page_config(page_title="FITS Studio", layout="wide")
 st.title("FITS Studio")
 
@@ -240,7 +290,7 @@ if not available:
 missing = set(scalar_surveys) - set(available)
 saved_params = load_saved_params()
 
-mode = st.sidebar.radio("モード", ["単バンド", "2バンド合成 (RGB)"], key="mode")
+mode = st.sidebar.radio("モード", ["単バンド", "2バンド合成 (RGB)", "Gaiaラスタライズ"], key="mode")
 if missing:
     st.sidebar.caption(f"未ダウンロードのため非表示: {', '.join(sorted(missing))}")
 
@@ -338,7 +388,7 @@ if mode == "単バンド":
             Image.fromarray(export_rgb, mode="RGB").save(out_path, optimize=False, compress_level=4)
         st.sidebar.success(f"書き出しました: {out_path}")
 
-else:
+elif mode == "2バンド合成 (RGB)":
     band_survey_names = list(available.keys())
     default_red = "02c_visible_dss2_red" if "02c_visible_dss2_red" in band_survey_names else band_survey_names[0]
     default_blue_candidates = [n for n in ("02d_visible_dss2_blue",) if n in band_survey_names]
@@ -407,5 +457,165 @@ else:
             export_rgb = combine_rgb(render_band(red_export_raw, red_params), render_band(blue_export_raw, blue_params), green_mode)
             OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
             out_path = OUTPUT_DIR / f"{red_survey}+{blue_survey}_rgb.png"
+            Image.fromarray(export_rgb, mode="RGB").save(out_path, optimize=False, compress_level=4)
+        st.sidebar.success(f"書き出しました: {out_path}")
+
+else:  # "Gaiaラスタライズ"
+    gaia_catalog_dir = Path("allsky_textures") / "gaia_catalog"
+    available_catalogs = sorted(gaia_catalog_dir.glob("gaia_dr3_g*.csv")) if gaia_catalog_dir.exists() else []
+
+    if not available_catalogs:
+        st.error(f"Gaiaカタログが見つかりません。先に download_gaia_catalog.py を実行してください。({gaia_catalog_dir})")
+        st.stop()
+
+    catalog_mag_limits = [float(p.stem.removeprefix("gaia_dr3_g")) for p in available_catalogs]
+    has_bright_catalog = bright_star_catalog_path_for(3.5).exists()
+    gaia_defaults = saved_params.get("gaia", {})
+
+    st.info(
+        "Gaia DR3を等級付きでカタログ取得し、等級で明るさ・大きさを変えたGaussian PSFで"
+        "直接ラスタライズするモード。FITSの明暗を後から伸縮する単バンド/2バンド合成とは違い、"
+        "「どの明るさの星をどれくらいの大きさ・色で描くか」という生成そのもののパラメータを"
+        "調整する。カタログ自体は download_gaia_catalog.py / download_bright_star_catalog.py で"
+        "事前に取得したものを使う(このアプリからは再クエリしない)。"
+    )
+
+    with st.sidebar:
+        st.header("カタログ")
+        catalog_mag_limit = st.selectbox("ダウンロード済みカタログ (G <)", catalog_mag_limits, key="gaia_catalog_mag_limit")
+
+        mag_cutoff = st.slider(
+            "表示する等級の足切り (G <)",
+            1.0,
+            float(catalog_mag_limit),
+            min(float(gaia_defaults.get("mag_cutoff", catalog_mag_limit)), float(catalog_mag_limit)),
+            step=0.5,
+            help="ダウンロード済みカタログの範囲内で、さらに明るい星だけに絞り込める(再ダウンロード不要)。",
+            key="gaia_mag_cutoff",
+        )
+
+        use_bright_stars = st.checkbox(
+            "明るい星を補完する (Yale BSC, G≲3等の飽和対策)",
+            value=bool(gaia_defaults.get("use_bright_stars", True)) and has_bright_catalog,
+            disabled=not has_bright_catalog,
+            key="gaia_use_bright_stars",
+        )
+        if not has_bright_catalog:
+            st.caption("bright_stars_v3.5.csv が無いので無効化中 (download_bright_star_catalog.py を実行)")
+
+        colored = st.checkbox("着彩する (BP-RP色指数)", value=bool(gaia_defaults.get("colored", True)), key="gaia_colored")
+
+        st.header("星のサイズ (等級 → PSF半径)")
+        sigma_base = st.slider(
+            "最小サイズ (最も暗い星)", 0.3, 3.0, float(gaia_defaults.get("sigma_base", 0.9)), step=0.1, key="gaia_sigma_base"
+        )
+        sigma_scale = st.slider(
+            "1等あたりの増加量", 0.0, 1.0, float(gaia_defaults.get("sigma_scale", 0.4)), step=0.05, key="gaia_sigma_scale"
+        )
+        sigma_max = st.slider(
+            "最大サイズ (最も明るい星)", 1.0, 15.0, float(gaia_defaults.get("sigma_max", 6.0)), step=0.5, key="gaia_sigma_max"
+        )
+
+        gray_colormap: str | None = None
+        gray_custom_colors: list[str] | None = None
+        if colored:
+            st.header("色")
+            saturation = st.slider(
+                "色の濃さ (彩度)",
+                0.0,
+                2.0,
+                float(gaia_defaults.get("saturation", 1.0)),
+                step=0.1,
+                help="0で白黒、1が基準の色付け。大きいほど各星が自分の色を"
+                "誇張する(赤い星はより赤く、青い星はより青く。白い星は白のまま) - "
+                "全体を一律に赤/青へ寄せるわけではない。",
+                key="gaia_saturation",
+            )
+            st.header("ストレッチ")
+            percentile = st.slider(
+                "正規化パーセンタイル", 95.0, 100.0, float(gaia_defaults.get("percentile", 99.9)), step=0.01, key="gaia_color_percentile"
+            )
+            strength = st.slider(
+                "strength (asinh)", 1.0, 50.0, float(gaia_defaults.get("strength", 10.0)), step=1.0, key="gaia_color_strength"
+            )
+        else:
+            saturation = 1.0
+            st.header("ストレッチ")
+            gray_params = band_controls("", {}, gaia_defaults, key_prefix="gaia_gray")
+            percentile, strength = gray_params["max_percentile"], gray_params["strength"] or DEFAULT_STRENGTH["asinh"]
+
+            st.header("配色")
+            gray_colormap = st.selectbox(
+                "colormap",
+                COLORMAPS,
+                index=COLORMAPS.index(gaia_defaults.get("colormap", "gray")) if gaia_defaults.get("colormap") in COLORMAPS else 0,
+                key="gaia_gray_colormap",
+            )
+            if gray_colormap == "custom":
+                saved_colors = gaia_defaults.get("custom_colors") if gaia_defaults.get("colormap") == "custom" else None
+                base_colors = saved_colors or DEFAULT_CUSTOM_COLORS
+                num_stops = st.slider("色の数", 2, 6, len(base_colors), key="gaia_custom_stops")
+                gray_custom_colors = [
+                    st.color_picker(f"色 {i + 1}", base_colors[i] if i < len(base_colors) else "#ffffff", key=f"gaia_custom_color_{i}")
+                    for i in range(num_stops)
+                ]
+
+        st.header("出力")
+        output_width = st.number_input(
+            "出力幅(px)",
+            min_value=64,
+            max_value=8192,
+            value=int(gaia_defaults.get("output_width", PNG_WIDTH)),
+            step=64,
+            key="gaia_output_width",
+        )
+        output_height = output_width // 2
+        st.caption(f"出力サイズ: {output_width} x {output_height}")
+
+    current_gaia_params = {
+        "mag_cutoff": mag_cutoff,
+        "use_bright_stars": use_bright_stars,
+        "colored": colored,
+        "sigma_base": sigma_base,
+        "sigma_scale": sigma_scale,
+        "sigma_max": sigma_max,
+        "saturation": saturation,
+        "percentile": percentile,
+        "strength": strength,
+        "colormap": gray_colormap,
+        "custom_colors": gray_custom_colors,
+        "output_width": output_width,
+    }
+    if current_gaia_params != gaia_defaults:
+        save_params("gaia", current_gaia_params)
+
+    if colored:
+        full_canvas = rasterize_gaia_color_cached(catalog_mag_limit, use_bright_stars, mag_cutoff, sigma_base, sigma_scale, sigma_max, saturation)
+        preview_small = np.stack([resize_to(full_canvas[:, :, c], PREVIEW_WIDTH, PREVIEW_HEIGHT) for c in range(3)], axis=-1)
+        preview_rgb = np.flipud(stretch_rgb(preview_small, percentile, strength))
+    else:
+        full_canvas = rasterize_gaia_gray_cached(catalog_mag_limit, use_bright_stars, mag_cutoff, sigma_base, sigma_scale, sigma_max)
+        preview_small = resize_to(full_canvas, PREVIEW_WIDTH, PREVIEW_HEIGHT)
+        gray_params_for_stretch = {"min_percentile": 0.0, "max_percentile": percentile, "stretch": "asinh", "strength": strength, "gamma": 1.0}
+        preview_rgb = render_single(preview_small, gray_params_for_stretch, gray_colormap or "gray", gray_custom_colors)
+
+    st.image(preview_rgb, use_container_width=True, caption=f"Gaia等級ラスタライズ プレビュー ({PREVIEW_WIDTH}x{PREVIEW_HEIGHT}, 表示用の簡易解像度)")
+
+    with st.expander("現在のパラメータ"):
+        st.caption(f"gaia の設定として {PARAMS_PATH} に自動保存済み。")
+        st.json(current_gaia_params)
+
+    if st.sidebar.button("この設定でPNGを書き出す", type="primary", key="export_gaia"):
+        with st.spinner(f"{output_width}x{output_height} で書き出し中..."):
+            if colored:
+                export_small = np.stack([resize_to(full_canvas[:, :, c], output_width, output_height) for c in range(3)], axis=-1)
+                export_rgb = np.flipud(stretch_rgb(export_small, percentile, strength))
+                out_name = f"02f_visible_gaia_dr3_color_g{catalog_mag_limit:g}cut{mag_cutoff:g}.png"
+            else:
+                export_small = resize_to(full_canvas, output_width, output_height)
+                export_rgb = render_single(export_small, gray_params_for_stretch, gray_colormap or "gray", gray_custom_colors)
+                out_name = f"02e_visible_gaia_dr3_mag_g{catalog_mag_limit:g}cut{mag_cutoff:g}.png"
+            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+            out_path = OUTPUT_DIR / out_name
             Image.fromarray(export_rgb, mode="RGB").save(out_path, optimize=False, compress_level=4)
         st.sidebar.success(f"書き出しました: {out_path}")
