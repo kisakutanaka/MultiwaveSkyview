@@ -169,12 +169,12 @@ async function main(): Promise<void> {
   }
 
   const layerStateA: LayerState = {
-    surveyName: "00_radio_haslam_408mhz",
+    surveyName: "02f_visible_gaia_dr3_color_g10cut3.5",
     colormap: "inferno",
   };
 
   const layerStateB: LayerState = {
-    surveyName: "02_visible_gaia_dr3_density",
+    surveyName: "01_infrared_akari_90um",
     colormap: "viridis",
   };
 
