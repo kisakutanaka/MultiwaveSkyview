@@ -98,3 +98,45 @@ WebGL2が使えるモダンブラウザのみを想定。WebGL1へのフォー�
 
 いずれもCDS(Centre de Données astronomiques de Strasbourg, Université de
 Strasbourg/CNRS)のHiPSサービス・hips2fitsサービス経由で取得している。
+
+以下2件は上記HiPS経由ではなく、それぞれ専用のパイプライン
+(`download_gaia_catalog.py`等・`download_gw_skymaps.py`)で個別取得している:
+
+- **可視光 (Gaia DR3 等級・着色)**: ESA/Gaia/DPAC(Gaia Data Processing and
+  Analysis Consortium)。Gaia Archive(ESAC)のTAPサービスから
+  `gaiadr3.gaia_source`を直接クエリして取得(`download_gaia_catalog.py`)。
+  推奨謝辞文: "This work has made use of data from the European Space Agency
+  (ESA) mission Gaia (<https://www.cosmos.esa.int/gaia>), processed by the
+  Gaia Data Processing and Analysis Consortium (DPAC,
+  <https://www.cosmos.esa.int/web/gaia/dpac/consortium>)."
+  また、Gaia自体が飽和する肉眼等級の明るい星(G≲3等)の等級補正には
+  **Yale Bright Star Catalogue, 5th Revised Ed.**(Hoffleit & Warren, 1991;
+  VizieRカタログ `V/50`)をCDS/VizieR経由で使用している
+  (`download_bright_star_catalog.py`)。
+- **重力波 (GWTC 確認済みイベント)**: LIGO Scientific Collaboration, Virgo
+  Collaboration, KAGRA Collaborationが公開する重力波イベントカタログ
+  (GWTC-1/2.1/3/4.1/5.0)のスカイローカリゼーションマップを、
+  Gravitational Wave Open Science Center(GWOSC, <https://gwosc.org>)経由で
+  取得・合成している(`download_gw_skymaps.py`, `rasterize_gw_skymaps.py`)。
+  GWOSCの利用規約で要求される謝辞文(原文のまま引用):
+  > This research has made use of data or software obtained from the
+  > Gravitational Wave Open Science Center (gwosc.org), a service of the
+  > LIGO Scientific Collaboration, the Virgo Collaboration, and KAGRA.
+  > LIGO Laboratory and Advanced LIGO are funded by the United States
+  > National Science Foundation (NSF) as well as the Science and Technology
+  > Facilities Council (STFC) of the United Kingdom, the Max-Planck-Society
+  > (MPS), and the State of Niedersachsen/Germany for support of the
+  > construction of Advanced LIGO and construction and operation of the
+  > GEO600 detector. Additional support for Advanced LIGO was provided by
+  > the Australian Research Council. Virgo is funded, through the European
+  > Gravitational Observatory (EGO), by the French Centre National de
+  > Recherche Scientifique (CNRS), the Italian Istituto Nazionale di Fisica
+  > Nucleare (INFN) and the Dutch Nikhef, with contributions by institutions
+  > from Belgium, Germany, Greece, Hungary, Ireland, Japan, Monaco, Poland,
+  > Portugal, Spain. KAGRA is supported by Ministry of Education, Culture,
+  > Sports, Science and Technology (MEXT), Japan Society for the Promotion
+  > of Science (JSPS) in Japan; National Research Foundation (NRF) and
+  > Ministry of Science and ICT (MSIT) in Korea; Academia Sinica (AS) and
+  > National Science and Technology Council (NSTC) in Taiwan.
+  GW170817のみ電磁対応天体(NGC 4993)由来の既知の正確な位置を使用しており、
+  GWOSCのスカイマップファイルは使用していない。
