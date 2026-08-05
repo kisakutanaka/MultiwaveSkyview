@@ -13,6 +13,7 @@ import { isSkyLockSupported, SkyLockController } from "./skyLock";
 import type { LayerState } from "./types";
 import { createColormapPanel } from "./ui/colormapPanel";
 import { createDebugToggle } from "./ui/debugToggle";
+import { createFovSlider } from "./ui/fovSlider";
 import { createHeadingCheckPanel } from "./ui/headingCheckPanel";
 import { createLayerBar } from "./ui/layerBar";
 import { createRingCheckButton } from "./ui/ringCheckButton";
@@ -121,6 +122,18 @@ if (isSkyLockSupported()) {
 }
 
 topIconBar.appendChild(createUiVisibilityToggle(app));
+
+app.appendChild(
+  createFovSlider({
+    min: 20,
+    max: 100,
+    initial: camera.fov,
+    onChange: (fovDeg) => {
+      camera.fov = fovDeg;
+      camera.updateProjectionMatrix();
+    },
+  }),
+);
 
 app.appendChild(createHeadingCheckPanel());
 app.appendChild(createRingCheckButton(scene));

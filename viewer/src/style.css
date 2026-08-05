@@ -116,8 +116,23 @@ body {
 
 .ui-hidden #layer-bar,
 .ui-hidden #sky-lock-button,
-.ui-hidden #debug-toggle-button {
+.ui-hidden #debug-toggle-button,
+.ui-hidden #fov-slider {
   display: none;
+}
+
+/* Field-of-view slider: a plain horizontal <input type=range> rotated
+   upright, so dragging up widens the view (max) and down zooms in (min). */
+#fov-slider {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  z-index: 10;
+  width: 150px;
+  height: 24px;
+  margin: 0;
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: center;
 }
 
 /* Dev/debug tools: off by default, shown via #debug-toggle-button. */
