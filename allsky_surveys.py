@@ -96,6 +96,15 @@ SURVEYS = {
         "max_percentile": 99.7,
         "stretch": "sqrt",
     },
+    # No "hips" key: not fetched via hips2fits. Built from GWOSC/GWTC
+    # confirmed-event skymaps (download_gw_skymaps.py) reprojected and
+    # summed onto the sky (rasterize_gw_skymaps.py). download_allsky_fits.py
+    # skips entries without "hips".
+    "06_gravitational_gwtc_skymap": {
+        "min_percentile": 1.0,
+        "max_percentile": 99.9,
+        "stretch": "asinh",
+    },
 }
 
 

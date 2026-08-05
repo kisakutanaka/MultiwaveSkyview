@@ -10,6 +10,10 @@ allsky_textures/fits/
 # from the Gaia archive, not needed for deployment.
 allsky_textures/gaia_catalog/
 
+# Raw GWOSC skymap tars/FITS + manifest (see download_gw_skymaps.py):
+# regenerable from GWOSC/Zenodo, not needed for deployment.
+allsky_textures/gw_catalog/
+
 # allsky_textures/png/ IS tracked - it's the data the deployed site serves,
 # and each file is well under 100MB.
 

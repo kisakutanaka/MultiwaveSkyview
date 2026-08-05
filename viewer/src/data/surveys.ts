@@ -69,6 +69,12 @@ export const SURVEYS: SurveyConfig[] = [
     label: "ガンマ線 (Fermi 300-1000MeV)",
     rawUrl: dataUrl("png_colored/05_gamma_fermi_300_1000mev.png"),
   },
+  {
+    kind: "color",
+    name: "06_gravitational_gwtc_skymap",
+    label: "重力波 (GWTC 確認済みイベント)",
+    rawUrl: dataUrl("png_colored/06_gravitational_gwtc_skymap.png"),
+  },
 ];
 
 export function findSurvey(name: string): SurveyConfig {

@@ -77,6 +77,16 @@
     "strength": 10.0,
     "stretch": "asinh"
   },
+  "06_gravitational_gwtc_skymap": {
+    "colormap": "inferno",
+    "custom_colors": null,
+    "gamma": 1.0,
+    "max_percentile": 99.9,
+    "min_percentile": 1.0,
+    "output_width": 2048,
+    "strength": 10.0,
+    "stretch": "asinh"
+  },
   "__composite__": {
     "02c_visible_dss2_red+00_radio_haslam_408mhz": {
       "blue": {
