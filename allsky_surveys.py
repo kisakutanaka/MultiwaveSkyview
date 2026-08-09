@@ -102,7 +102,7 @@ SURVEYS = {
     # skips entries without "hips".
     "06_gravitational_gwtc_skymap": {
         "min_percentile": 1.0,
-        "max_percentile": 99.9,
+        "max_percentile": 99.99,
         "stretch": "asinh",
     },
     # No "hips" key: not fetched via hips2fits. Built from the IceCube

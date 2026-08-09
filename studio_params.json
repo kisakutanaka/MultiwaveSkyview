@@ -81,7 +81,7 @@
     "colormap": "inferno",
     "custom_colors": null,
     "gamma": 1.0,
-    "max_percentile": 99.9,
+    "max_percentile": 99.99,
     "min_percentile": 1.0,
     "output_width": 2048,
     "strength": 10.0,
