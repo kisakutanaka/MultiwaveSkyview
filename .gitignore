@@ -14,6 +14,10 @@ allsky_textures/gaia_catalog/
 # regenerable from GWOSC/Zenodo, not needed for deployment.
 allsky_textures/gw_catalog/
 
+# Raw ICECAT-1 catalog table (see download_icecube_catalog.py): regenerable
+# from Harvard Dataverse, not needed for deployment.
+allsky_textures/icecube_catalog/
+
 # allsky_textures/png/ IS tracked - it's the data the deployed site serves,
 # and each file is well under 100MB.
 

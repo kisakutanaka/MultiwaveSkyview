@@ -105,6 +105,14 @@ SURVEYS = {
         "max_percentile": 99.9,
         "stretch": "asinh",
     },
+    # No "hips" key: not fetched via hips2fits. Built from the IceCube
+    # ICECAT-1 Gold/Bronze alert-track catalog (download_icecube_catalog.py)
+    # splatted as SIGNAL-weighted Gaussian PSFs (rasterize_icecube_catalog.py).
+    "07_neutrino_icecat1_gold_bronze": {
+        "min_percentile": 1.0,
+        "max_percentile": 99.9,
+        "stretch": "asinh",
+    },
 }
 
 

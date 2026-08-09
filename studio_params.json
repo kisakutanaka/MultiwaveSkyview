@@ -87,6 +87,20 @@
     "strength": 10.0,
     "stretch": "asinh"
   },
+  "07_neutrino_icecat1_gold_bronze": {
+    "colormap": "custom",
+    "custom_colors": [
+      "#000000",
+      "#0ea5e9",
+      "#ffffff"
+    ],
+    "gamma": 1.0,
+    "max_percentile": 99.9,
+    "min_percentile": 1.0,
+    "output_width": 2048,
+    "strength": 10.0,
+    "stretch": "asinh"
+  },
   "__composite__": {
     "02c_visible_dss2_red+00_radio_haslam_408mhz": {
       "blue": {

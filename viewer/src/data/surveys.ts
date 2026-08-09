@@ -75,6 +75,12 @@ export const SURVEYS: SurveyConfig[] = [
     label: "重力波 (GWTC 確認済みイベント)",
     rawUrl: dataUrl("png_colored/06_gravitational_gwtc_skymap.png"),
   },
+  {
+    kind: "color",
+    name: "07_neutrino_icecat1_gold_bronze",
+    label: "ニュートリノ (IceCube ICECAT-1)",
+    rawUrl: dataUrl("png_colored/07_neutrino_icecat1_gold_bronze.png"),
+  },
 ];
 
 export function findSurvey(name: string): SurveyConfig {

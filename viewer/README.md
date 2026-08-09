@@ -140,3 +140,11 @@ Strasbourg/CNRS)のHiPSサービス・hips2fitsサービス経由で取得して
   > National Science and Technology Council (NSTC) in Taiwan.
   GW170817のみ電磁対応天体(NGC 4993)由来の既知の正確な位置を使用しており、
   GWOSCのスカイマップファイルは使用していない。
+- **ニュートリノ (IceCube ICECAT-1)**: IceCube Collaboration(IceCube
+  Neutrino Observatory, 南極点)が公開するICECAT-1カタログ
+  (Gold/Bronzeリアルタイムアラート由来の高エネルギーニュートリノイベント、
+  2011-2023年)を、Harvard Dataverse(<https://doi.org/10.7910/DVN/SCRUCD>,
+  CC0ライセンス)経由で取得している(`download_icecube_catalog.py`,
+  `rasterize_icecube_catalog.py`)。カタログ論文:
+  R. Abbasi et al. 2023, "IceCat-1: the IceCube Event Catalog of Alert
+  Tracks", <https://arxiv.org/abs/2304.01174>。

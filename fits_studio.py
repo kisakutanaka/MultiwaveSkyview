@@ -164,6 +164,16 @@ SURVEY_HINTS = {
         "小さなGaussianで代用。ほぼ全域が0に近いスパースなマップなので、"
         "min percentileを低め・strengthを上げると淡いイベントも見えやすい。"
     ),
+    "07_neutrino_icecat1_gold_bronze": (
+        "IceCube ICECAT-1カタログ(2011-2023年の高エネルギーGold/Bronze"
+        "アラートイベント340件、download_icecube_catalog.py)を、各イベントの"
+        "90%信頼区間の誤差箱サイズ(角度)をGaussianの広がりに、SIGNAL"
+        "(天体起源である確率)を明るさに変換してラスタライズしたもの"
+        "(rasterize_icecube_catalog.py)。GWと同様、局在が良いイベントほど"
+        "小さく明るく、悪いイベントほど大きく淡く写る。一部の領域に"
+        "見える密なクラスタは偶然ではなく、数年おきに同じ方向から"
+        "繰り返し検出された既知の候補天体(multiplet)。"
+    ),
 }
 
 
